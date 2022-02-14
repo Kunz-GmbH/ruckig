@@ -4,7 +4,7 @@
 #include <cfloat>
 #include <cmath>
 
-
+#define M_PI       3.14159265358979323846   // pi
 namespace ruckig {
 
 inline double Power2(double v) {

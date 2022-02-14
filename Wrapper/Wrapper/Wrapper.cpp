@@ -1,5 +1,4 @@
 #include "pch.h"
-
 #include "Wrapper.h"
 
 using namespace System::Collections::Generic;
@@ -42,7 +41,7 @@ namespace ruckig {
                 auto j = (a - aOld) / td;
 
                 if (Math::Abs(j - jOld) > 0.5) {
-                    JerkStates jerkState{ counter, j };
+                    JerkStates jerkState{ counter, j, a, output.new_velocity[0], output.new_position[0] };
                     results->Add(jerkState);
                 }
 
@@ -51,7 +50,7 @@ namespace ruckig {
                 ++counter;
                 output.pass_to_input(input);
             }
-            JerkStates finalJerkState{ counter, 0 };
+            JerkStates finalJerkState{ counter, 0, output.new_acceleration[0], output.new_velocity[0], output.new_position[0] };
             results->Add(finalJerkState);
             resultValues.CalculationSuccessful = otg.update(input, output) == Result::Finished;
             ValueTuple< List<JerkStates>^, ResultValues> resultTuple{ results, resultValues };
