@@ -31,6 +31,8 @@ namespace ruckig {
             ResultValues resultValues{ };
             List<JerkStates>^ results = gcnew List<JerkStates>();
 
+            auto vOld = 0.0;
+            auto pOld = 0.0;
             while (otg.update(input, output) == Result::Working) {
                 if (counter == 0) {
                     resultValues.CalculationTime = output.calculation_duration;
@@ -41,10 +43,12 @@ namespace ruckig {
                 auto j = (a - aOld) / td;
 
                 if (Math::Abs(j - jOld) > 0.5) {
-                    JerkStates jerkState{ counter, j, a, output.new_velocity[0], output.new_position[0] };
+                    JerkStates jerkState{ counter, j, aOld, vOld, pOld};
                     results->Add(jerkState);
                 }
 
+                pOld = output.new_position[0];
+                vOld = output.new_velocity[0];
                 aOld = a;
                 jOld = j;
                 ++counter;
@@ -52,7 +56,7 @@ namespace ruckig {
             }
             JerkStates finalJerkState{ counter, 0, output.new_acceleration[0], output.new_velocity[0], output.new_position[0] };
             results->Add(finalJerkState);
-            resultValues.CalculationSuccessful = otg.update(input, output) == Result::Finished;
+            resultValues.CalculationResult = otg.update(input, output);
             ValueTuple< List<JerkStates>^, ResultValues> resultTuple{ results, resultValues };
             return  resultTuple;
         }

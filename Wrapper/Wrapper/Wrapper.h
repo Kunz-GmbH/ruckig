@@ -11,7 +11,7 @@ namespace ruckig {
         public value struct ResultValues {
             double CalculationTime;
             double Duration;
-            bool CalculationSuccessful;
+            int CalculationResult;
         };
 
         public value struct Parameter {
