@@ -71,7 +71,7 @@ namespace ruckig {
 			while (otg.update(input, output) == Result::Working && (stepLimit < 0 || counter < stepLimit)) {
 				CurrentState state{
 					output.new_position[0],output.new_position[1] ,output.new_position[2] ,output.new_position[3],
-					output.new_velocity[0],output.new_velocity[1] ,output.new_velocity[2] ,output.new_velocity[3]				
+					output.new_velocity[0],output.new_velocity[1] ,output.new_velocity[2] ,output.new_velocity[3]
 				};
 				results->Add(state);
 				++counter;
@@ -117,8 +117,7 @@ namespace ruckig {
 					resultValues.Duration = output.trajectory.get_duration();
 				}
 
-				auto a = output.new_acceleration[0];
-				auto j = (a - aOld) / td;
+				auto j = output.new_jerk[0];
 
 				if (Math::Abs(j - jOld) > 0.5) {
 					JerkStates jerkState{ counter, j, aOld, vOld, pOld };
@@ -127,12 +126,12 @@ namespace ruckig {
 
 				pOld = output.new_position[0];
 				vOld = output.new_velocity[0];
-				aOld = a;
+				aOld = output.new_acceleration[0];
 				jOld = j;
 				++counter;
 				output.pass_to_input(input);
 			}
-			JerkStates finalJerkState{ counter, 0, output.new_acceleration[0], output.new_velocity[0], output.new_position[0] };
+			JerkStates finalJerkState{ counter, output.new_jerk[0], output.new_acceleration[0], output.new_velocity[0], output.new_position[0] };
 			results->Add(finalJerkState);
 			resultValues.CalculationResult = otg.update(input, output);
 			ValueTuple< List<JerkStates>^, ResultValues> resultTuple{ results, resultValues };
