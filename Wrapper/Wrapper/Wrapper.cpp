@@ -5,9 +5,7 @@ using namespace System::Collections::Generic;
 namespace ruckig {
 	namespace Wrapper {
 
-		// 1 axis for dt use short timestep (1ms?) so we can iterate -> handle in dt
-
-
+		// ctor for dt with only 1 axis
 		RuckigWrapper::RuckigWrapper(Parameter parameter) {
 			Ruckig<1> otg{ };
 			InputParameter<1> input;
@@ -27,25 +25,26 @@ namespace ruckig {
 			input.max_jerk = { parameter.MaxJerk };
 
 			Trajectory<1> trajectory;
-			auto res = otg.calculate(input, trajectory);
+			Result res = otg.calculate(input, trajectory);
 			_trajectory = &trajectory;
 		}
+
 		RuckigWrapper::~RuckigWrapper() {
 			delete _trajectory;
 		}
 
 		JerkStates RuckigWrapper::GetStep(double td) {
-			double new_time{ td};
+			double new_time{ td };
 
 			// Then, we can calculate the kinematic state at a given time
 			std::array<double, 1> new_position, new_velocity, new_acceleration;
 			_trajectory->at_time(new_time, new_position, new_velocity, new_acceleration);
 
-			JerkStates state{0, 0, new_acceleration[0], new_velocity[0], new_position[0]};
+			JerkStates state{ 0, 0, new_acceleration[0], new_velocity[0], new_position[0] };
 			return state;
 		}
 
-		// 4 axis for cps -> only return position for all 4 values
+		// 4 axis for cps
 		ValueTuple< List<Positions>^, ResultValues> RuckigWrapper::GetPositions(double td, Parameter tro, Parameter gnt, Parameter hst, Parameter slg) {
 			Ruckig<4> otg{ td }; // tro, gnt, hst, slg
 			InputParameter<4> input;
@@ -67,7 +66,7 @@ namespace ruckig {
 			List<Positions>^ results = gcnew List<Positions>();
 
 			while (otg.update(input, output) == Result::Working) {
-				Positions pos { output.new_position[0],output.new_position[1] ,output.new_position[2] ,output.new_position[3] };
+				Positions pos{ output.new_position[0],output.new_position[1] ,output.new_position[2] ,output.new_position[3] };
 				results->Add(pos);
 			}
 
