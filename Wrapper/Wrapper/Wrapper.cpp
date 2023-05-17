@@ -1,64 +1,135 @@
-#include "pch.h"
 #include "Wrapper.h"
 
 using namespace System::Collections::Generic;
 
 namespace ruckig {
-    namespace Wrapper {
+	namespace Wrapper {
 
-        ValueTuple< List<JerkStates>^, ResultValues> RuckigWrapper::GetValues(double td, Parameter parameter)
-        {
-            Ruckig<1> otg{ td };
-            InputParameter<1> input;
-            OutputParameter<1> output;
+		// 1 axis for dt use short timestep (1ms?) so we can iterate -> handle in dt
 
-            // Set input parameters
-            input.current_position = { parameter.CurrentPosition };
-            input.current_velocity = { parameter.CurrentVelocity };
-            input.current_acceleration = { parameter.CurrentAcceleration };
 
-            input.target_position = { parameter.TargetPosition };
-            input.target_velocity = { parameter.TargetVelocity };
-            input.target_acceleration = { parameter.TargetAcceleration };
+		RuckigWrapper::RuckigWrapper(Parameter parameter) {
+			Ruckig<1> otg{ };
+			InputParameter<1> input;
+			OutputParameter<1> output;
 
-            input.max_velocity = { parameter.MaxVelocity };
-            input.max_acceleration = { parameter.MaxAcceleration };
-            input.max_jerk = { parameter.MaxJerk };
+			// Set input parameters
+			input.current_position = { parameter.CurrentPosition };
+			input.current_velocity = { parameter.CurrentVelocity };
+			input.current_acceleration = { parameter.CurrentAcceleration };
 
-            auto aOld = 0.0;
-            auto jOld = 0.0;
-            auto counter = 0;
-            ResultValues resultValues{ };
-            List<JerkStates>^ results = gcnew List<JerkStates>();
+			input.target_position = { parameter.TargetPosition };
+			input.target_velocity = { parameter.TargetVelocity };
+			input.target_acceleration = { parameter.TargetAcceleration };
 
-            auto vOld = 0.0;
-            auto pOld = 0.0;
-            while (otg.update(input, output) == Result::Working) {
-                if (counter == 0) {
-                    resultValues.CalculationTime = output.calculation_duration;
-                    resultValues.Duration = output.trajectory.get_duration();
-                }
+			input.max_velocity = { parameter.MaxVelocity };
+			input.max_acceleration = { parameter.MaxAcceleration };
+			input.max_jerk = { parameter.MaxJerk };
 
-                auto a = output.new_acceleration[0];
-                auto j = (a - aOld) / td;
+			Trajectory<1> trajectory;
+			auto res = otg.calculate(input, trajectory);
+			_trajectory = &trajectory;
+		}
+		RuckigWrapper::~RuckigWrapper() {
+			delete _trajectory;
+		}
 
-                if (Math::Abs(j - jOld) > 0.5) {
-                    JerkStates jerkState{ counter, j, aOld, vOld, pOld};
-                    results->Add(jerkState);
-                }
+		JerkStates RuckigWrapper::GetStep(double td) {
+			double new_time{ td};
 
-                pOld = output.new_position[0];
-                vOld = output.new_velocity[0];
-                aOld = a;
-                jOld = j;
-                ++counter;
-                output.pass_to_input(input);
-            }
-            JerkStates finalJerkState{ counter, 0, output.new_acceleration[0], output.new_velocity[0], output.new_position[0] };
-            results->Add(finalJerkState);
-            resultValues.CalculationResult = otg.update(input, output);
-            ValueTuple< List<JerkStates>^, ResultValues> resultTuple{ results, resultValues };
-            return  resultTuple;
-        }
-    }
+			// Then, we can calculate the kinematic state at a given time
+			std::array<double, 1> new_position, new_velocity, new_acceleration;
+			_trajectory->at_time(new_time, new_position, new_velocity, new_acceleration);
+
+			JerkStates state{0, 0, new_acceleration[0], new_velocity[0], new_position[0]};
+			return state;
+		}
+
+		// 4 axis for cps -> only return position for all 4 values
+		ValueTuple< List<Positions>^, ResultValues> RuckigWrapper::GetPositions(double td, Parameter tro, Parameter gnt, Parameter hst, Parameter slg) {
+			Ruckig<4> otg{ td }; // tro, gnt, hst, slg
+			InputParameter<4> input;
+			OutputParameter<4> output;
+
+			input.current_position = { tro.CurrentPosition, gnt.CurrentPosition, hst.CurrentPosition, slg.CurrentPosition };
+			input.current_velocity = { tro.CurrentVelocity, gnt.CurrentVelocity, hst.CurrentVelocity, slg.CurrentVelocity };
+			input.current_acceleration = { tro.CurrentAcceleration, gnt.CurrentAcceleration, hst.CurrentAcceleration, slg.CurrentAcceleration };
+
+			input.target_position = { tro.TargetPosition, gnt.TargetPosition, hst.TargetPosition, slg.TargetPosition };
+			input.target_velocity = { tro.TargetVelocity, gnt.TargetVelocity, hst.TargetVelocity, slg.TargetVelocity };
+			input.target_acceleration = { tro.TargetAcceleration, gnt.TargetAcceleration, hst.TargetAcceleration, slg.TargetAcceleration };
+
+			input.max_velocity = { tro.MaxVelocity, gnt.MaxVelocity, hst.MaxVelocity, slg.MaxVelocity };
+			input.max_acceleration = { tro.MaxAcceleration, gnt.MaxAcceleration, hst.MaxAcceleration, slg.MaxAcceleration };
+			input.max_jerk = { tro.MaxJerk, gnt.MaxJerk, hst.MaxJerk, slg.MaxJerk };
+
+			ResultValues resultValues{ };
+			List<Positions>^ results = gcnew List<Positions>();
+
+			while (otg.update(input, output) == Result::Working) {
+				Positions pos { output.new_position[0],output.new_position[1] ,output.new_position[2] ,output.new_position[3] };
+				results->Add(pos);
+			}
+
+			resultValues.CalculationResult = otg.update(input, output);
+			ValueTuple< List<Positions>^, ResultValues> resultTuple{ results, resultValues };
+			return  resultTuple;
+		}
+
+		ValueTuple< List<JerkStates>^, ResultValues> RuckigWrapper::GetValues(double td, Parameter parameter)
+		{
+			Ruckig<1> otg{ td };
+			InputParameter<1> input;
+			OutputParameter<1> output;
+
+			// Set input parameters
+			input.current_position = { parameter.CurrentPosition };
+			input.current_velocity = { parameter.CurrentVelocity };
+			input.current_acceleration = { parameter.CurrentAcceleration };
+
+			input.target_position = { parameter.TargetPosition };
+			input.target_velocity = { parameter.TargetVelocity };
+			input.target_acceleration = { parameter.TargetAcceleration };
+
+			input.max_velocity = { parameter.MaxVelocity };
+			input.max_acceleration = { parameter.MaxAcceleration };
+			input.max_jerk = { parameter.MaxJerk };
+
+			auto aOld = 0.0;
+			auto jOld = 0.0;
+			auto counter = 0;
+			ResultValues resultValues{ };
+			List<JerkStates>^ results = gcnew List<JerkStates>();
+
+			auto vOld = 0.0;
+			auto pOld = 0.0;
+
+			while (otg.update(input, output) == Result::Working) {
+				if (counter == 0) {
+					resultValues.CalculationTime = output.calculation_duration;
+					resultValues.Duration = output.trajectory.get_duration();
+				}
+
+				auto a = output.new_acceleration[0];
+				auto j = (a - aOld) / td;
+
+				if (Math::Abs(j - jOld) > 0.5) {
+					JerkStates jerkState{ counter, j, aOld, vOld, pOld };
+					results->Add(jerkState);
+				}
+
+				pOld = output.new_position[0];
+				vOld = output.new_velocity[0];
+				aOld = a;
+				jOld = j;
+				++counter;
+				output.pass_to_input(input);
+			}
+			JerkStates finalJerkState{ counter, 0, output.new_acceleration[0], output.new_velocity[0], output.new_position[0] };
+			results->Add(finalJerkState);
+			resultValues.CalculationResult = otg.update(input, output);
+			ValueTuple< List<JerkStates>^, ResultValues> resultTuple{ results, resultValues };
+			return  resultTuple;
+		}
+	}
 }
