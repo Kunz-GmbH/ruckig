@@ -77,7 +77,7 @@
     <IncludePath>U:\CSharpEntwicklung\ruckig\include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <IncludePath>U:\CSharpEntwicklung\ruckig\include;$(IncludePath)</IncludePath>
+    <IncludePath>C:\workdir\CSharpDevelopment\Kunz-GmbH\ruckig\include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <IncludePath>U:\CSharpEntwicklung\ruckig\include;$(IncludePath)</IncludePath>
@@ -96,7 +96,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
-      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>WIN32;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -138,11 +138,15 @@
     <ClInclude Include="Wrapper.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\src\brake.cpp" />
-    <ClCompile Include="..\..\src\position-step1.cpp" />
-    <ClCompile Include="..\..\src\position-step2.cpp" />
-    <ClCompile Include="..\..\src\velocity-step1.cpp" />
-    <ClCompile Include="..\..\src\velocity-step2.cpp" />
+    <ClCompile Include="..\..\src\ruckig\brake.cpp" />
+    <ClCompile Include="..\..\src\ruckig\position-second-step1.cpp" />
+    <ClCompile Include="..\..\src\ruckig\position-second-step2.cpp" />
+    <ClCompile Include="..\..\src\ruckig\position-third-step1.cpp" />
+    <ClCompile Include="..\..\src\ruckig\position-third-step2.cpp" />
+    <ClCompile Include="..\..\src\ruckig\velocity-second-step1.cpp" />
+    <ClCompile Include="..\..\src\ruckig\velocity-second-step2.cpp" />
+    <ClCompile Include="..\..\src\ruckig\velocity-third-step1.cpp" />
+    <ClCompile Include="..\..\src\ruckig\velocity-third-step2.cpp" />
     <ClCompile Include="AssemblyInfo.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

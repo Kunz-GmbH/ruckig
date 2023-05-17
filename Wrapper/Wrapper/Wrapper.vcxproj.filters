@@ -38,19 +38,31 @@
     <ClCompile Include="pch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\brake.cpp">
+    <ClCompile Include="..\..\src\ruckig\brake.cpp">
       <Filter>Source Files\ruckig</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\position-step1.cpp">
+    <ClCompile Include="..\..\src\ruckig\position-second-step1.cpp">
       <Filter>Source Files\ruckig</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\position-step2.cpp">
+    <ClCompile Include="..\..\src\ruckig\position-second-step2.cpp">
       <Filter>Source Files\ruckig</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\velocity-step1.cpp">
+    <ClCompile Include="..\..\src\ruckig\position-third-step1.cpp">
       <Filter>Source Files\ruckig</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\velocity-step2.cpp">
+    <ClCompile Include="..\..\src\ruckig\position-third-step2.cpp">
+      <Filter>Source Files\ruckig</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\ruckig\velocity-second-step1.cpp">
+      <Filter>Source Files\ruckig</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\ruckig\velocity-second-step2.cpp">
+      <Filter>Source Files\ruckig</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\ruckig\velocity-third-step1.cpp">
+      <Filter>Source Files\ruckig</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\ruckig\velocity-third-step2.cpp">
       <Filter>Source Files\ruckig</Filter>
     </ClCompile>
   </ItemGroup>

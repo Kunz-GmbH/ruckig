@@ -1,4 +1,3 @@
-#include "pch.h"
 #include <ruckig/block.hpp>
 #include <ruckig/position.hpp>
 #include <ruckig/profile.hpp>
