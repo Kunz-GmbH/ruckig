@@ -25,17 +25,27 @@ namespace ruckig {
             double MaxAcceleration;
             double MaxJerk;
         };
-        public value struct Positions {
-            double Tro;
-            double Gnt;
-            double Hst;
-            double Slg;
+        public value struct CurrentState {
+            double TroPos;
+            double GntPos;
+            double HstPos;
+            double SlgPos;
 
-            Positions(double tro, double gnt, double hst, double slg) {
-                Tro = tro;
-                Gnt = gnt;
-                Hst = hst;
-                Slg = slg;
+            double TroVel;
+            double GntVel;
+            double HstVel;
+            double SlgVel;
+
+            CurrentState(double troPos, double gntPos, double hstPos, double slgPos, double troVel, double gntVel, double hstVel, double slgVel) {
+                TroPos = troPos;
+                GntPos = gntPos;
+                HstPos = hstPos;
+                SlgPos = slgPos;
+
+                TroVel = troVel;
+                GntVel = gntVel;
+                HstVel = hstVel;
+                SlgVel = slgVel;
             }
         };
 
@@ -63,7 +73,7 @@ namespace ruckig {
             RuckigWrapper(Parameter parameter);
             ~RuckigWrapper();
             JerkStates GetStep(double td);
-            static ValueTuple< List<Positions>^, ResultValues> GetPositions(double td, Parameter tro, Parameter gnt, Parameter hst, Parameter slg);
+            static ValueTuple< List<CurrentState>^, ResultValues> GetPositions(double td, Parameter tro, Parameter gnt, Parameter hst, Parameter slg, int stepLimit);
 
         private:
             Trajectory<1>* _trajectory;

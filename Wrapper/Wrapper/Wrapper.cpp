@@ -45,7 +45,7 @@ namespace ruckig {
 		}
 
 		// 4 axis for cps
-		ValueTuple< List<Positions>^, ResultValues> RuckigWrapper::GetPositions(double td, Parameter tro, Parameter gnt, Parameter hst, Parameter slg) {
+		ValueTuple< List<CurrentState>^, ResultValues> RuckigWrapper::GetPositions(double td, Parameter tro, Parameter gnt, Parameter hst, Parameter slg, int stepLimit) {
 			Ruckig<4> otg{ td }; // tro, gnt, hst, slg
 			InputParameter<4> input;
 			OutputParameter<4> output;
@@ -62,16 +62,24 @@ namespace ruckig {
 			input.max_acceleration = { tro.MaxAcceleration, gnt.MaxAcceleration, hst.MaxAcceleration, slg.MaxAcceleration };
 			input.max_jerk = { tro.MaxJerk, gnt.MaxJerk, hst.MaxJerk, slg.MaxJerk };
 
-			ResultValues resultValues{ };
-			List<Positions>^ results = gcnew List<Positions>();
+			input.synchronization = Synchronization::None;
 
-			while (otg.update(input, output) == Result::Working) {
-				Positions pos{ output.new_position[0],output.new_position[1] ,output.new_position[2] ,output.new_position[3] };
-				results->Add(pos);
+
+			ResultValues resultValues{ };
+			List<CurrentState>^ results = gcnew List<CurrentState>();
+			auto counter = 0;
+			while (otg.update(input, output) == Result::Working && (stepLimit < 0 || counter < stepLimit)) {
+				CurrentState state{
+					output.new_position[0],output.new_position[1] ,output.new_position[2] ,output.new_position[3],
+					output.new_velocity[0],output.new_velocity[1] ,output.new_velocity[2] ,output.new_velocity[3]				
+				};
+				results->Add(state);
+				++counter;
+				output.pass_to_input(input);
 			}
 
 			resultValues.CalculationResult = otg.update(input, output);
-			ValueTuple< List<Positions>^, ResultValues> resultTuple{ results, resultValues };
+			ValueTuple< List<CurrentState>^, ResultValues> resultTuple{ results, resultValues };
 			return  resultTuple;
 		}
 
