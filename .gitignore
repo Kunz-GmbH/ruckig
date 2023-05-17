@@ -6,8 +6,10 @@
 __pycache__
 *.egg-info
 
+.env
 build
 dist
+doc/html
 local
 reflexxes
 ruckig-pro-*

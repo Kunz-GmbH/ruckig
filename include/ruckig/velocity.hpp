@@ -6,41 +6,50 @@
 
 namespace ruckig {
 
-using Limits = Profile::Limits;
-using JerkSigns = Profile::JerkSigns;
+//! Mathematical equations for Step 1 in third-order velocity interface: Extremal profiles
+class VelocityThirdOrderStep1 {
+    using ReachedLimits = Profile::ReachedLimits;
+    using ControlSigns = Profile::ControlSigns;
 
-//! Mathematical equations for Step 1 in velocity interface: Extremal profiles
-class VelocityStep1 {
-    double v0, a0;
-    double vf, af;
-    double _aMax, _aMin, _jMax;
+    const double a0, af;
+    const double _aMax, _aMin, _jMax;
+
+    // Pre-calculated expressions
+    double vd;
 
     // Max 3 valid profiles
+    using ProfileIter = std::array<Profile, 3>::iterator;
     std::array<Profile, 3> valid_profiles;
-    size_t valid_profile_counter;
 
-    void time_acc0(Profile& profile, double aMax, double aMin, double jMax);
-    void time_none(Profile& profile, double aMax, double aMin, double jMax);
+    void time_acc0(ProfileIter& profile, double aMax, double aMin, double jMax, bool return_after_found) const;
+    void time_none(ProfileIter& profile, double aMax, double aMin, double jMax, bool return_after_found) const;
 
-    inline void add_profile(const Profile& profile, double jMax) {
-        valid_profiles[valid_profile_counter] = profile;
-        valid_profiles[valid_profile_counter].pf = profile.p.back();
-        valid_profiles[valid_profile_counter].direction = (jMax > 0) ? Profile::Direction::UP : Profile::Direction::DOWN;
-        ++valid_profile_counter;
+    // Only for zero-limits case
+    bool time_all_single_step(Profile* profile, double aMax, double aMin, double jMax) const;
+
+    inline void add_profile(ProfileIter& profile) const {
+        const auto prev_profile = profile;
+        ++profile;
+        profile->set_boundary(*prev_profile);
     }
 
 public:
-    explicit VelocityStep1(double v0, double a0, double vf, double af, double aMax, double aMin, double jMax);
+    explicit VelocityThirdOrderStep1(double v0, double a0, double vf, double af, double aMax, double aMin, double jMax);
 
     bool get_profile(const Profile& input, Block& block);
 };
 
 
-//! Mathematical equations for Step 2 in velocity interface: Time synchronization
-class VelocityStep2 {
-    double v0, a0;
-    double tf, vf, af; 
-    double _aMax, _aMin, _jMax;
+//! Mathematical equations for Step 2 in third-order velocity interface: Time synchronization
+class VelocityThirdOrderStep2 {
+    using ReachedLimits = Profile::ReachedLimits;
+    using ControlSigns = Profile::ControlSigns;
+
+    const double a0, tf, af;
+    const double _aMax, _aMin, _jMax;
+
+    // Pre-calculated expressions
+    double vd, ad;
 
     bool time_acc0(Profile& profile, double aMax, double aMin, double jMax);
     bool time_none(Profile& profile, double aMax, double aMin, double jMax);
@@ -50,7 +59,31 @@ class VelocityStep2 {
     }
 
 public:
-    explicit VelocityStep2(double tf, double v0, double a0, double vf, double af, double aMax, double aMin, double jMax);
+    explicit VelocityThirdOrderStep2(double tf, double v0, double a0, double vf, double af, double aMax, double aMin, double jMax);
+
+    bool get_profile(Profile& profile);
+};
+
+
+//! Mathematical equations for Step 1 in second-order velocity interface: Extremal profiles
+class VelocitySecondOrderStep1 {
+    const double _aMax, _aMin;
+    double vd; // Pre-calculated expressions
+
+public:
+    explicit VelocitySecondOrderStep1(double v0, double vf, double aMax, double aMin);
+
+    bool get_profile(const Profile& input, Block& block);
+};
+
+
+//! Mathematical equations for Step 2 in second-order velocity interface: Time synchronization
+class VelocitySecondOrderStep2 {
+    const double tf, _aMax, _aMin;
+    double vd; // Pre-calculated expressions
+
+public:
+    explicit VelocitySecondOrderStep2(double tf, double v0, double vf, double aMax, double aMin);
 
     bool get_profile(Profile& profile);
 };

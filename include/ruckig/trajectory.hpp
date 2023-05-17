@@ -1,22 +1,26 @@
 #pragma once
 
 #include <array>
+#include <functional>
 #include <tuple>
 #include <vector>
 
-#include <ruckig/input_parameter.hpp>
+#ifdef WITH_SERIALIZATION
+#include <json/json.hpp>
+#endif
+
+#include <ruckig/error.hpp>
 #include <ruckig/profile.hpp>
 
 
 namespace ruckig {
 
-template <size_t> class Reflexxes;
-template <size_t> class TargetCalculator;
-template <size_t> class WaypointsCalculator;
+template <size_t, template<class, size_t> class> class TargetCalculator;
+template <size_t, template<class, size_t> class> class WaypointsCalculator;
 
 
 //! Interface for the generated trajectory.
-template<size_t DOFs>
+template<size_t DOFs, template<class, size_t> class CustomVector = StandardVector>
 class Trajectory {
 #if defined WITH_ONLINE_CLIENT
     template<class T> using Container = std::vector<T>;
@@ -24,11 +28,10 @@ class Trajectory {
     template<class T> using Container = std::array<T, 1>;
 #endif
 
-    template<class T> using Vector = typename std::conditional<DOFs >= 1, std::array<T, DOFs>, std::vector<T>>::type;
+    template<class T> using Vector = CustomVector<T, DOFs>;
 
-    friend class Reflexxes<DOFs>;
-    friend class TargetCalculator<DOFs>;
-    friend class WaypointsCalculator<DOFs>;
+    friend class TargetCalculator<DOFs, CustomVector>;
+    friend class WaypointsCalculator<DOFs, CustomVector>;
 
     Container<Vector<Profile>> profiles;
 
@@ -41,77 +44,33 @@ class Trajectory {
     size_t continue_calculation_counter {0};
 
 #if defined WITH_ONLINE_CLIENT
+    template <size_t D = DOFs, typename std::enable_if<(D >= 1), int>::type = 0>
     void resize(size_t max_number_of_waypoints) {
         profiles.resize(max_number_of_waypoints + 1);
         cumulative_times.resize(max_number_of_waypoints + 1);
+    }
 
-        if constexpr (DOFs == 0) {
-            for (auto& p: profiles) {
-                p.resize(degrees_of_freedom);
-            }
+    template <size_t D = DOFs, typename std::enable_if<(D == 0), int>::type = 0>
+    void resize(size_t max_number_of_waypoints) {
+        resize<1>(max_number_of_waypoints); // Also call resize method above
+
+        for (auto& p: profiles) {
+            p.resize(degrees_of_freedom);
         }
     }
 #endif
 
-public:
-    size_t degrees_of_freedom;
-
-    template <size_t D = DOFs, typename std::enable_if<D >= 1, int>::type = 0>
-    Trajectory(): degrees_of_freedom(DOFs) {
-#if defined WITH_ONLINE_CLIENT
-        resize(0);
-#endif
-    }
-
-    template <size_t D = DOFs, typename std::enable_if<D == 0, int>::type = 0>
-    Trajectory(size_t dofs): degrees_of_freedom(dofs) {
-#if defined WITH_ONLINE_CLIENT
-        resize(0);
-#endif
-
-        profiles[0].resize(dofs);
-        independent_min_durations.resize(dofs);
-        position_extrema.resize(dofs);
-    }
-
-#if defined WITH_ONLINE_CLIENT
-    template <size_t D = DOFs, typename std::enable_if<D >= 1, int>::type = 0>
-    Trajectory(size_t max_number_of_waypoints): degrees_of_freedom(DOFs) {
-        resize(max_number_of_waypoints);
-    }
-
-    template <size_t D = DOFs, typename std::enable_if<D == 0, int>::type = 0>
-    Trajectory(size_t dofs, size_t max_number_of_waypoints): degrees_of_freedom(dofs) {
-        resize(max_number_of_waypoints);
-
-        independent_min_durations.resize(dofs);
-        position_extrema.resize(dofs);
-    }
-#endif
-
-    //! Get the underlying profiles of the trajectory
-    Container<Vector<Profile>> get_profiles() const {
-        return profiles;
-    }
-
-    //! Get the kinematic state at a given time
-
-    //! The Python wrapper takes `time` as an argument, and returns `new_position`, `new_velocity`, and `new_acceleration` instead.
-    void at_time(double time, Vector<double>& new_position, Vector<double>& new_velocity, Vector<double>& new_acceleration, size_t& new_section) const {
-        if constexpr (DOFs == 0) {
-            if (degrees_of_freedom != new_position.size() || degrees_of_freedom != new_velocity.size() || degrees_of_freedom != new_acceleration.size()) {
-                throw std::runtime_error("[ruckig] mismatch in degrees of freedom (vector size).");
-            }
-        }
-
+    //! Calculates the base values to then integrate from
+    using SetIntegrate = std::function<void(size_t, double, double, double, double, double)>;
+    void state_to_integrate_from(double time, size_t& new_section, const SetIntegrate& set_integrate) const {
         if (time >= duration) {
             // Keep constant acceleration
             new_section = profiles.size();
-            auto& profiles_dof = profiles.back();
+            const auto& profiles_dof = profiles.back();
             for (size_t dof = 0; dof < degrees_of_freedom; ++dof) {
                 const double t_pre = (profiles.size() > 1) ? cumulative_times[cumulative_times.size() - 2] : profiles_dof[dof].brake.duration;
                 const double t_diff = time - (t_pre + profiles_dof[dof].t_sum.back());
-                std::tie(new_position[dof], new_velocity[dof], new_acceleration[dof]) = integrate(t_diff, profiles_dof[dof].p.back(), profiles_dof[dof].v.back(), profiles_dof[dof].a.back(), 0);
+                set_integrate(dof, t_diff, profiles_dof[dof].p.back(), profiles_dof[dof].v.back(), profiles_dof[dof].a.back(), 0.0);
             }
             return;
         }
@@ -135,7 +94,7 @@ public:
                         t_diff_dof -= p.brake.t[index - 1];
                     }
 
-                    std::tie(new_position[dof], new_velocity[dof], new_acceleration[dof]) = integrate(t_diff_dof, p.brake.p[index], p.brake.v[index], p.brake.a[index], p.brake.j[index]);
+                    set_integrate(dof, t_diff_dof, p.brake.p[index], p.brake.v[index], p.brake.a[index], p.brake.j[index]);
                     continue;
                 } else {
                     t_diff_dof -= p.brake.duration;
@@ -153,14 +112,14 @@ public:
             //         t_diff_dof -= p.t_sum.back();
 
             //         if (t_diff_dof < p.accel.t[1]) {
-            //             std::tie(new_position[dof], new_velocity[dof], new_acceleration[dof]) = integrate(t_diff_dof, p.p.back(), p.v.back(), p.a.back(), p.accel.j[1]);
+            //             set_integrate(dof, t_diff_dof, p.p.back(), p.v.back(), p.a.back(), p.accel.j[1]);
             //             continue;
             //         }
 
             //         t_diff_dof -= p.accel.t[1];
 
             //         const size_t index = 1;
-            //         std::tie(new_position[dof], new_velocity[dof], new_acceleration[dof]) = integrate(t_diff_dof, p.accel.p[index], p.accel.v[index], p.accel.a[index], p.accel.j[index]);
+            //         set_integrate(dof, t_diff_dof, p.accel.p[index], p.accel.v[index], p.accel.a[index], p.accel.j[index]);
             //         continue;
             //     }
             // }
@@ -168,7 +127,7 @@ public:
             // Non-time synchronization
             if (t_diff_dof >= p.t_sum.back()) {
                 // Keep constant acceleration
-                std::tie(new_position[dof], new_velocity[dof], new_acceleration[dof]) = integrate(t_diff_dof - p.t_sum.back(), p.p.back(), p.v.back(), p.a.back(), 0);
+                set_integrate(dof, t_diff_dof - p.t_sum.back(), p.p.back(), p.v.back(), p.a.back(), 0.0);
                 continue;
             }
 
@@ -179,14 +138,120 @@ public:
                 t_diff_dof -= p.t_sum[index_dof - 1];
             }
 
-            std::tie(new_position[dof], new_velocity[dof], new_acceleration[dof]) = integrate(t_diff_dof, p.p[index_dof], p.v[index_dof], p.a[index_dof], p.j[index_dof]);
+            set_integrate(dof, t_diff_dof, p.p[index_dof], p.v[index_dof], p.a[index_dof], p.j[index_dof]);
         }
     }
 
-    //! Get the kinematic state and current section at a given time
+public:
+    size_t degrees_of_freedom;
+
+    template <size_t D = DOFs, typename std::enable_if<(D >= 1), int>::type = 0>
+    Trajectory(): degrees_of_freedom(DOFs) {
+#if defined WITH_ONLINE_CLIENT
+        resize(0);
+#endif
+    }
+
+    template <size_t D = DOFs, typename std::enable_if<(D == 0), int>::type = 0>
+    Trajectory(size_t dofs): degrees_of_freedom(dofs) {
+#if defined WITH_ONLINE_CLIENT
+        resize(0);
+#endif
+
+        profiles[0].resize(dofs);
+        independent_min_durations.resize(dofs);
+        position_extrema.resize(dofs);
+    }
+
+#if defined WITH_ONLINE_CLIENT
+    template <size_t D = DOFs, typename std::enable_if<(D >= 1), int>::type = 0>
+    Trajectory(size_t max_number_of_waypoints): degrees_of_freedom(DOFs) {
+        resize(max_number_of_waypoints);
+    }
+
+    template <size_t D = DOFs, typename std::enable_if<(D == 0), int>::type = 0>
+    Trajectory(size_t dofs, size_t max_number_of_waypoints): degrees_of_freedom(dofs) {
+        resize(max_number_of_waypoints);
+
+        independent_min_durations.resize(dofs);
+        position_extrema.resize(dofs);
+    }
+#endif
+
+    //! Get the kinematic state, the jerk, and the section at a given time
+    void at_time(double time, Vector<double>& new_position, Vector<double>& new_velocity, Vector<double>& new_acceleration, Vector<double>& new_jerk, size_t& new_section) const {
+        if constexpr (DOFs == 0) {
+            if (degrees_of_freedom != new_position.size() || degrees_of_freedom != new_velocity.size() || degrees_of_freedom != new_acceleration.size() || degrees_of_freedom != new_jerk.size()) {
+                throw RuckigError("mismatch in degrees of freedom (vector size).");
+            }
+        }
+
+        state_to_integrate_from(time, new_section, [&](size_t dof, double t, double p, double v, double a, double j) {
+            std::tie(new_position[dof], new_velocity[dof], new_acceleration[dof]) = integrate(t, p, v, a, j);
+            new_jerk[dof] = j;
+        });
+    }
+
+    //! Get the kinematic state at a given time
+    //! The Python wrapper takes `time` as an argument, and returns `new_position`, `new_velocity`, and `new_acceleration` instead.
     void at_time(double time, Vector<double>& new_position, Vector<double>& new_velocity, Vector<double>& new_acceleration) const {
+        if constexpr (DOFs == 0) {
+            if (degrees_of_freedom != new_position.size() || degrees_of_freedom != new_velocity.size() || degrees_of_freedom != new_acceleration.size()) {
+                throw RuckigError("mismatch in degrees of freedom (vector size).");
+            }
+        }
+
         size_t new_section;
-        at_time(time, new_position, new_velocity, new_acceleration, new_section);
+        state_to_integrate_from(time, new_section, [&](size_t dof, double t, double p, double v, double a, double j) {
+            std::tie(new_position[dof], new_velocity[dof], new_acceleration[dof]) = integrate(t, p, v, a, j);
+        });
+    }
+
+    //! Get the position at a given time
+    void at_time(double time, Vector<double>& new_position) const {
+        if constexpr (DOFs == 0) {
+            if (degrees_of_freedom != new_position.size()) {
+                throw RuckigError("mismatch in degrees of freedom (vector size).");
+            }
+        }
+
+        size_t new_section;
+        state_to_integrate_from(time, new_section, [&](size_t dof, double t, double p, double v, double a, double j) {
+            std::tie(new_position[dof], std::ignore, std::ignore) = integrate(t, p, v, a, j);
+        });
+    }
+
+    //! Get the kinematic state, the jerk, and the section at a given time without vectors for a single DoF
+    template <size_t D = DOFs, typename std::enable_if<(D == 1), int>::type = 0>
+    void at_time(double time, double& new_position, double& new_velocity, double& new_acceleration, double& new_jerk, size_t& new_section) const {
+        state_to_integrate_from(time, new_section, [&](size_t, double t, double p, double v, double a, double j) {
+            std::tie(new_position, new_velocity, new_acceleration) = integrate(t, p, v, a, j);
+            new_jerk = j;
+        });
+    }
+
+    //! Get the kinematic state at a given time without vectors for a single DoF
+    template <size_t D = DOFs, typename std::enable_if<(D == 1), int>::type = 0>
+    void at_time(double time, double& new_position, double& new_velocity, double& new_acceleration) const {
+        size_t new_section;
+        state_to_integrate_from(time, new_section, [&](size_t, double t, double p, double v, double a, double j) {
+            std::tie(new_position, new_velocity, new_acceleration) = integrate(t, p, v, a, j);
+        });
+    }
+
+    //! Get the position at a given time without vectors for a single DoF
+    template <size_t D = DOFs, typename std::enable_if<(D == 1), int>::type = 0>
+    void at_time(double time, double& new_position) const {
+        size_t new_section;
+        state_to_integrate_from(time, new_section, [&](size_t, double t, double p, double v, double a, double j) {
+            std::tie(new_position, std::ignore, std::ignore) = integrate(t, p, v, a, j);
+        });
+    }
+
+
+    //! Get the underlying profiles of the trajectory
+    Container<Vector<Profile>> get_profiles() const {
+        return profiles;
     }
 
     //! Get the duration of the (synchronized) trajectory
@@ -244,6 +309,10 @@ public:
         }
         return false;
     }
+
+#ifdef WITH_SERIALIZATION
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(Trajectory<DOFs>, degrees_of_freedom, profiles, duration, cumulative_times, independent_min_durations)
+#endif
 };
 
 } // namespace ruckig
