@@ -5,8 +5,9 @@ using namespace System::Collections::Generic;
 namespace ruckig {
 	namespace Wrapper {
 
-		// ctor for dt with only 1 axis
-		RuckigWrapper::RuckigWrapper(Parameter parameter) {
+
+		StepState RuckigWrapper::GetStep(Parameter parameter, double td) {
+			double new_time{ td };
 			Ruckig<1> otg{ };
 			InputParameter<1> input;
 			OutputParameter<1> output;
@@ -26,21 +27,11 @@ namespace ruckig {
 
 			Trajectory<1> trajectory;
 			Result res = otg.calculate(input, trajectory);
-			_trajectory = &trajectory;
-		}
-
-		RuckigWrapper::~RuckigWrapper() {
-			delete _trajectory;
-		}
-
-		JerkStates RuckigWrapper::GetStep(double td) {
-			double new_time{ td };
-
 			// Then, we can calculate the kinematic state at a given time
 			std::array<double, 1> new_position, new_velocity, new_acceleration;
-			_trajectory->at_time(new_time, new_position, new_velocity, new_acceleration);
+			trajectory.at_time(new_time, new_position, new_velocity, new_acceleration);
 
-			JerkStates state{ 0, 0, new_acceleration[0], new_velocity[0], new_position[0] };
+			StepState state{ res, new_acceleration[0], new_velocity[0], new_position[0] };
 			return state;
 		}
 
@@ -79,6 +70,11 @@ namespace ruckig {
 			}
 
 			resultValues.CalculationResult = otg.update(input, output);
+			CurrentState lastState{
+					output.new_position[0],output.new_position[1] ,output.new_position[2] ,output.new_position[3],
+					output.new_velocity[0],output.new_velocity[1] ,output.new_velocity[2] ,output.new_velocity[3]
+			};
+			results->Add(lastState);
 			ValueTuple< List<CurrentState>^, ResultValues> resultTuple{ results, resultValues };
 			return  resultTuple;
 		}

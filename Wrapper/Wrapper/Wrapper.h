@@ -48,6 +48,21 @@ namespace ruckig {
                 SlgVel = slgVel;
             }
         };
+        public value struct StepState {
+            int CalculationResult;
+            double Jerk;
+            double Accelereration;
+            double Velocity;
+            double Position;
+            StepState(int calculationResult, double acceleration, double velocity, double position)
+            {
+                CalculationResult = calculationResult;
+                Accelereration = acceleration;
+                Velocity = velocity;
+                Position = position;
+            }
+
+        };
 
         public value struct JerkStates {
             int Step;
@@ -70,9 +85,8 @@ namespace ruckig {
         public:
             static ValueTuple< List<JerkStates>^, ResultValues>  GetValues(double td, Parameter parameter);
 
-            RuckigWrapper(Parameter parameter);
-            ~RuckigWrapper();
-            JerkStates GetStep(double td);
+          
+            static StepState GetStep(Parameter parameter, double td);
             static ValueTuple< List<CurrentState>^, ResultValues> GetPositions(double td, Parameter tro, Parameter gnt, Parameter hst, Parameter slg, int stepLimit);
 
         private:
