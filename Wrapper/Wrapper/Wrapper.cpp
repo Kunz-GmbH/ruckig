@@ -35,23 +35,26 @@ namespace ruckig {
 			return state;
 		}
 
-		// 4 axis for cps
-		ValueTuple< List<CurrentState>^, ResultValues> RuckigWrapper::GetPositions(double td, Parameter tro, Parameter gnt, Parameter hst, Parameter slg, int stepLimit) {
-			Ruckig<4> otg{ td }; // tro, gnt, hst, slg
-			InputParameter<4> input;
-			OutputParameter<4> output;
+		// 1 axis for cps
+		ValueTuple< List<CurrentState>^, ResultValues> RuckigWrapper::GetPositions(double td, Parameter para, int stepLimit, bool useVelocityInterface) {
+			Ruckig<1> otg{ td };
+			InputParameter<1> input;
+			OutputParameter<1> output;
 
-			input.current_position = { tro.CurrentPosition, gnt.CurrentPosition, hst.CurrentPosition, slg.CurrentPosition };
-			input.current_velocity = { tro.CurrentVelocity, gnt.CurrentVelocity, hst.CurrentVelocity, slg.CurrentVelocity };
-			input.current_acceleration = { tro.CurrentAcceleration, gnt.CurrentAcceleration, hst.CurrentAcceleration, slg.CurrentAcceleration };
+			input.current_position = { para.CurrentPosition };
+			input.current_velocity = { para.CurrentVelocity };
+			input.current_acceleration = { para.CurrentAcceleration };
 
-			input.target_position = { tro.TargetPosition, gnt.TargetPosition, hst.TargetPosition, slg.TargetPosition };
-			input.target_velocity = { tro.TargetVelocity, gnt.TargetVelocity, hst.TargetVelocity, slg.TargetVelocity };
-			input.target_acceleration = { tro.TargetAcceleration, gnt.TargetAcceleration, hst.TargetAcceleration, slg.TargetAcceleration };
+			input.target_position = { para.TargetPosition };
+			input.target_velocity = { para.TargetVelocity };
+			input.target_acceleration = { para.TargetAcceleration };
 
-			input.max_velocity = { tro.MaxVelocity, gnt.MaxVelocity, hst.MaxVelocity, slg.MaxVelocity };
-			input.max_acceleration = { tro.MaxAcceleration, gnt.MaxAcceleration, hst.MaxAcceleration, slg.MaxAcceleration };
-			input.max_jerk = { tro.MaxJerk, gnt.MaxJerk, hst.MaxJerk, slg.MaxJerk };
+			input.max_velocity = { para.MaxVelocity };
+			input.max_acceleration = { para.MaxAcceleration };
+			input.max_jerk = { para.MaxJerk };
+
+			if (useVelocityInterface)
+				input.control_interface = ControlInterface::Velocity;
 
 			input.synchronization = Synchronization::None;
 
@@ -60,20 +63,14 @@ namespace ruckig {
 			List<CurrentState>^ results = gcnew List<CurrentState>();
 			auto counter = 0;
 			while (otg.update(input, output) == Result::Working && (stepLimit < 0 || counter < stepLimit)) {
-				CurrentState state{
-					output.new_position[0],output.new_position[1] ,output.new_position[2] ,output.new_position[3],
-					output.new_velocity[0],output.new_velocity[1] ,output.new_velocity[2] ,output.new_velocity[3]
-				};
+				CurrentState state{output.new_position[0], output.new_velocity[0], output.new_acceleration[0]};
 				results->Add(state);
 				++counter;
 				output.pass_to_input(input);
 			}
 
 			resultValues.CalculationResult = otg.update(input, output);
-			CurrentState lastState{
-					output.new_position[0],output.new_position[1] ,output.new_position[2] ,output.new_position[3],
-					output.new_velocity[0],output.new_velocity[1] ,output.new_velocity[2] ,output.new_velocity[3]
-			};
+			CurrentState lastState{ output.new_position[0], output.new_velocity[0], output.new_acceleration[0]};
 			results->Add(lastState);
 			ValueTuple< List<CurrentState>^, ResultValues> resultTuple{ results, resultValues };
 			return  resultTuple;
