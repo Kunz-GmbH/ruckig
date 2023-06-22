@@ -35,6 +35,71 @@ namespace ruckig {
 			return state;
 		}
 
+		ValueTuple< array<List<CurrentState>^>^, ResultValues> RuckigWrapper::GetPositionsIncludingBrakePosition(double td, Parameter para, int stepLimit, bool useVelocityInterface) {
+
+			std::vector<Ruckig<1>>  otgs {stepLimit};
+			std::vector<InputParameter<1>> inputs{stepLimit};
+			std::vector<OutputParameter<1>> outputs{stepLimit};
+
+			array<List<CurrentState>^>^ results = gcnew array< List<CurrentState>^>(stepLimit);
+			for (auto i = 0; i < stepLimit; ++i) {
+
+				Ruckig<1> otg {td};
+				InputParameter<1> input;
+				OutputParameter<1> output;
+				input.current_position = { para.CurrentPosition };
+				input.current_velocity = { para.CurrentVelocity };
+				input.current_acceleration = { para.CurrentAcceleration };
+
+				input.target_position = { para.TargetPosition };
+				input.target_velocity = { para.TargetVelocity };
+				input.target_acceleration = { para.TargetAcceleration };
+
+				input.max_velocity = { para.MaxVelocity };
+				input.max_acceleration = { para.MaxAcceleration };
+				input.max_jerk = { para.MaxJerk };
+
+				if (useVelocityInterface)
+					input.control_interface = ControlInterface::Velocity;
+
+				input.synchronization = Synchronization::None;
+
+				results[i] = gcnew List<CurrentState>();
+
+				otgs.emplace_back(otg);
+				inputs.emplace_back(input);
+				outputs.emplace_back(input);
+			}
+
+			ResultValues resultValues{ };
+			for (auto i = 0; i < stepLimit; ++i) {
+				auto counter = 0;
+				while (otgs.at(i).update(inputs.at(i), outputs.at(i)) == Result::Working && (stepLimit < 0 || counter < stepLimit)) {
+					CurrentState state{ outputs.at(i).new_position[0], outputs.at(i).new_velocity[0], outputs.at(i).new_acceleration[0] };
+
+					results[i]->Add(state);
+
+					if (counter == i) {
+						inputs.at(i).control_interface = ControlInterface::Velocity;
+						inputs.at(i).target_velocity = {0};
+						inputs.at(i).target_acceleration = {0};
+					}
+
+					++counter;
+					outputs.at(i).pass_to_input(inputs.at(i));
+				}
+
+				auto res = otgs.at(i).update(inputs.at(i), outputs.at(i));
+				if (res < 0 || i == 0)
+					resultValues.CalculationResult = res;
+				CurrentState lastState{ outputs.at(i).new_position[0], outputs.at(i).new_velocity[0], outputs.at(i).new_acceleration[0] };
+				results[i]->Add(lastState);
+			}
+
+			ValueTuple< array<List<CurrentState>^>^, ResultValues> resultTuple{ results, resultValues };
+			return  resultTuple;
+		}
+
 		// 1 axis for cps
 		ValueTuple< List<CurrentState>^, ResultValues> RuckigWrapper::GetPositions(double td, Parameter para, int stepLimit, bool useVelocityInterface) {
 			Ruckig<1> otg{ td };
@@ -63,19 +128,20 @@ namespace ruckig {
 			List<CurrentState>^ results = gcnew List<CurrentState>();
 			auto counter = 0;
 			while (otg.update(input, output) == Result::Working && (stepLimit < 0 || counter < stepLimit)) {
-				CurrentState state{output.new_position[0], output.new_velocity[0], output.new_acceleration[0]};
+				CurrentState state{ output.new_position[0], output.new_velocity[0], output.new_acceleration[0] };
 				results->Add(state);
 				++counter;
 				output.pass_to_input(input);
 			}
 
 			resultValues.CalculationResult = otg.update(input, output);
-			CurrentState lastState{ output.new_position[0], output.new_velocity[0], output.new_acceleration[0]};
+			CurrentState lastState{ output.new_position[0], output.new_velocity[0], output.new_acceleration[0] };
 			results->Add(lastState);
 			ValueTuple< List<CurrentState>^, ResultValues> resultTuple{ results, resultValues };
 			return  resultTuple;
 		}
 
+		// PCP Trajectory generator
 		ValueTuple< List<JerkStates>^, ResultValues> RuckigWrapper::GetValues(double td, Parameter parameter)
 		{
 			Ruckig<1> otg{ td };
