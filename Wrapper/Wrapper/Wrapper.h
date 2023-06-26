@@ -70,8 +70,9 @@ namespace ruckig {
 		public ref class RuckigWrapper
 		{
 		public:
+			RuckigWrapper(double td, Parameter para, bool useVelocityInterface);
+			ValueTuple<CurrentState, ResultValues> GetNextState(Parameter para, bool useVelocityInterface);
 			static ValueTuple< List<JerkStates>^, ResultValues>  GetValues(double td, Parameter parameter);
-
 
 			static StepState GetStep(Parameter parameter, double td);
 			static ValueTuple< List<CurrentState>^, ResultValues> GetPositions(double td, Parameter para, int stepLimit, bool useVelocityInterface);
@@ -79,6 +80,9 @@ namespace ruckig {
 
 		private:
 			Trajectory<1>* _trajectory;
+			Ruckig<1>* _otg;
+			InputParameter<1>* _input;
+			OutputParameter<1>* _output;
 		};
 	}
 }
