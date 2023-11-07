@@ -101,11 +101,11 @@ namespace ruckig {
 
 			input.max_acceleration = { para.MaxAcceleration };
 			input.max_jerk = { para.MaxJerk };
-			input.duration_discretization = DurationDiscretization::Discrete;
+			// TODO ? input.duration_discretization = DurationDiscretization::Discrete;
 			input.control_interface = ControlInterface::Velocity;
 			input.synchronization = Synchronization::None;
 
-			// workaround for hard kinematic constraints (ruckig tries getting into the constraints without being time optimality)
+			// workaround for hard kinematic constraints (ruckig tries getting into the constraints without being time optimale)
 			if (para.CurrentVelocity > 0 && para.CurrentVelocity > para.MaxVelocity || para.CurrentVelocity < 0 && para.CurrentVelocity < -para.MaxVelocity) {
 				input.current_position = { para.CurrentPosition };
 				input.current_velocity = { para.CurrentVelocity };
@@ -157,6 +157,7 @@ namespace ruckig {
 
 			for (auto i = 0; i < stepLimit; ++i) {
 				auto counter = 0;
+				results[i] = gcnew List<CurrentState>(stepLimit);
 
 				input.current_position = { para.CurrentPosition };
 				input.current_velocity = { para.CurrentVelocity };
@@ -167,6 +168,7 @@ namespace ruckig {
 				input.target_acceleration = { para.TargetAcceleration };
 
 				input.max_velocity = { para.MaxVelocity };
+				input.control_interface = ControlInterface::Position;
 
 				if (use2PhaseChange) {
 					input.target_velocity = { para.MaxVelocity };
@@ -233,11 +235,11 @@ namespace ruckig {
 
 			input.max_acceleration = { para.MaxAcceleration };
 			input.max_jerk = { para.MaxJerk };
-			input.duration_discretization = DurationDiscretization::Discrete;
+			// TODO ? input.duration_discretization = DurationDiscretization::Discrete;
 			input.control_interface = ControlInterface::Velocity;
 			input.synchronization = Synchronization::None;
 
-			// workaround for hard kinematic constraints (ruckig tries getting into the constraints without being time optimality)
+			// workaround for hard kinematic constraints (ruckig tries getting into the constraints without being time optimale)
 			if (para.CurrentVelocity > 0 && para.CurrentVelocity > para.MaxVelocity || para.CurrentVelocity < 0 && para.CurrentVelocity < -para.MaxVelocity) {
 				input.current_position = { para.CurrentPosition };
 				input.current_velocity = { para.CurrentVelocity };
@@ -299,6 +301,7 @@ namespace ruckig {
 
 			input.max_velocity = { para.MaxVelocity };
 
+			input.control_interface = ControlInterface::Position;
 
 			if (use2PhaseChange) {
 				input.target_velocity = { para.MaxVelocity };
