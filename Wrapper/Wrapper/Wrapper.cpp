@@ -84,7 +84,7 @@ namespace ruckig {
 			return state;
 		}
 
-		ValueTuple< array<List<CurrentState>^>^, ResultValues> RuckigWrapper::GetPositionsIncludingBrakePosition(double td, Parameter para, int stepLimit, bool useVelocityInterface) {
+		ValueTuple< array<List<CurrentState>^>^, ResultValues> RuckigWrapper::GetPositionsIncludingBrakePosition(double td, Parameter para, int stepLimit, int brakeTrajectoriesLimit, bool useVelocityInterface) {
 
 			ResultValues resultValues{ };
 			array<List<CurrentState>^>^ results = gcnew array< List<CurrentState>^>(stepLimit);
@@ -155,9 +155,9 @@ namespace ruckig {
 				}
 			}
 
-			for (auto i = 0; i < stepLimit; ++i) {
+			for (auto i = 0; i < brakeTrajectoriesLimit + 1; ++i) {
 				auto counter = 0;
-				results[i] = gcnew List<CurrentState>(stepLimit);
+				results[i] = gcnew List<CurrentState>(brakeTrajectoriesLimit + 1);
 
 				input.current_position = { para.CurrentPosition };
 				input.current_velocity = { para.CurrentVelocity };

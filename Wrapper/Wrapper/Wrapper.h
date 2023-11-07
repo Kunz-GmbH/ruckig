@@ -76,7 +76,7 @@ namespace ruckig {
 
 			static StepState GetStep(Parameter parameter, double td);
 			static ValueTuple< List<CurrentState>^, ResultValues> GetPositions(double td, Parameter para, int stepLimit, bool useVelocityInterface);
-			static ValueTuple< array<List<CurrentState>^>^, ResultValues> GetPositionsIncludingBrakePosition(double td, Parameter para, int stepLimit, bool useVelocityInterface);
+			static ValueTuple< array<List<CurrentState>^>^, ResultValues> GetPositionsIncludingBrakePosition(double td, Parameter para, int stepLimit, int brakeTrajectoriesLimit, bool useVelocityInterface);
 
 		private:
 			Trajectory<1>* _trajectory;
