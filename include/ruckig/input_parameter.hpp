@@ -1,8 +1,8 @@
 #pragma once
 
 #include <array>
-#include <limits>
 #include <iomanip>
+#include <limits>
 #include <optional>
 #include <sstream>
 #include <type_traits>
@@ -33,13 +33,13 @@ enum class DurationDiscretization {
 };
 
 
-//! Input type of Ruckig
+//! Input of the Ruckig algorithm
 template<size_t DOFs, template<class, size_t> class CustomVector = StandardVector>
 class InputParameter {
     template<class T> using Vector = CustomVector<T, DOFs>;
 
     inline static double v_at_a_zero(double v0, double a0, double j) {
-        return v0 + (a0 * a0)/(2 * j);
+        return v0 + (a0 * a0) / (2 * j);
     }
 
     void initialize() {
@@ -67,7 +67,7 @@ class InputParameter {
         enabled.resize(dofs);
     }
 
-#if defined WITH_ONLINE_CLIENT
+#if defined WITH_CLOUD_CLIENT
     void reserve(size_t max_number_of_waypoints) {
         intermediate_positions.reserve(max_number_of_waypoints);
     }
@@ -80,24 +80,25 @@ public:
     Synchronization synchronization {Synchronization::Time};
     DurationDiscretization duration_discretization {DurationDiscretization::Continuous};
 
-    // Current state
+    //! Current state
     Vector<double> current_position, current_velocity, current_acceleration;
 
-    // Target state
+    //! Target state
     Vector<double> target_position, target_velocity, target_acceleration;
 
-    // Kinematic constraints
+    //! Kinematic constraints
     Vector<double> max_velocity, max_acceleration, max_jerk;
     std::optional<Vector<double>> min_velocity, min_acceleration;
 
     //! Intermediate waypoints (only in Ruckig Pro)
     std::vector<Vector<double>> intermediate_positions;
 
-    // Kinematic constraints for intermediate sections (between waypoints) (only in Ruckig Pro)
+    //! Kinematic constraints for intermediate sections (between waypoints) (only in Ruckig Pro)
     std::optional<std::vector<Vector<double>>> per_section_max_velocity, per_section_max_acceleration, per_section_max_jerk;
     std::optional<std::vector<Vector<double>>> per_section_min_velocity, per_section_min_acceleration;
+    std::optional<std::vector<Vector<double>>> per_section_max_position, per_section_min_position;
 
-    // Positional constraints (only in Ruckig Pro)
+    //! Positional constraints (only in Ruckig Pro)
     std::optional<Vector<double>> max_position, min_position;
 
     //! Is the DoF considered for calculation?
@@ -115,7 +116,7 @@ public:
     //! Optional minimum trajectory duration for each intermediate sections (only in Ruckig Pro)
     std::optional<std::vector<double>> per_section_minimum_duration;
 
-    //! Optional duration [µs] after which the trajectory calculation is (softly) interrupted (only in Ruckig Pro)
+    //! @brief Optional duration [µs] after which the trajectory calculation is (softly) interrupted (only in Ruckig Pro)
     //!
     //! The total calculation consists of a first iterative phase and a second fixed phase. The interrupt signal
     //! is applied to the iterative phase only, and the real-time capable (constant) second phase is computed
@@ -123,25 +124,25 @@ public:
     //! which should be considered (subtracted) here.
     std::optional<double> interrupt_calculation_duration;
 
-    template <size_t D = DOFs, typename std::enable_if<(D >= 1), int>::type = 0>
+    template<size_t D = DOFs, typename std::enable_if<(D >= 1), int>::type = 0>
     InputParameter(): degrees_of_freedom(DOFs) {
         initialize();
     }
 
-    template <size_t D = DOFs, typename std::enable_if<(D == 0), int>::type = 0>
+    template<size_t D = DOFs, typename std::enable_if<(D == 0), int>::type = 0>
     InputParameter(size_t dofs): degrees_of_freedom(dofs) {
         resize(dofs);
         initialize();
     }
 
-#if defined WITH_ONLINE_CLIENT
-    template <size_t D = DOFs, typename std::enable_if<(D >= 1), int>::type = 0>
+#if defined WITH_CLOUD_CLIENT
+    template<size_t D = DOFs, typename std::enable_if<(D >= 1), int>::type = 0>
     InputParameter(size_t max_number_of_waypoints): degrees_of_freedom(DOFs) {
         reserve(max_number_of_waypoints);
         initialize();
     }
 
-    template <size_t D = DOFs, typename std::enable_if<(D == 0), int>::type = 0>
+    template<size_t D = DOFs, typename std::enable_if<(D == 0), int>::type = 0>
     InputParameter(size_t dofs, size_t max_number_of_waypoints): degrees_of_freedom(dofs) {
         reserve(max_number_of_waypoints);
         resize(dofs);
@@ -151,7 +152,7 @@ public:
 
     //! Validate the input for trajectory calculation
     template<bool throw_validation_error = true>
-    bool validate(bool check_current_state_within_limits=false, bool check_target_state_within_limits=true) const {
+    bool validate(bool check_current_state_within_limits = false, bool check_target_state_within_limits = true) const {
         for (size_t dof = 0; dof < degrees_of_freedom; ++dof) {
             const double jMax = max_jerk[dof];
             if (std::isnan(jMax) || jMax < 0.0) {
@@ -162,7 +163,7 @@ public:
             }
 
             const double aMax = max_acceleration[dof];
-            if (std::isnan(aMax) || std::isinf(aMax) || aMax < 0.0) {
+            if (std::isnan(aMax) || aMax < 0.0) {
                 if constexpr (throw_validation_error) {
                     throw RuckigError("maximum acceleration limit " + std::to_string(aMax) + " of DoF " + std::to_string(dof) + " should be larger than or equal to zero.");
                 }
@@ -170,7 +171,7 @@ public:
             }
 
             const double aMin = min_acceleration ? min_acceleration.value()[dof] : -max_acceleration[dof];
-            if (std::isnan(aMin) || std::isinf(aMin) || aMin > 0.0) {
+            if (std::isnan(aMin) || aMin > 0.0) {
                 if constexpr (throw_validation_error) {
                     throw RuckigError("minimum acceleration limit " + std::to_string(aMin) + " of DoF " + std::to_string(dof) + " should be smaller than or equal to zero.");
                 }
@@ -375,6 +376,8 @@ public:
             && per_section_max_jerk == rhs.per_section_max_jerk
             && per_section_min_velocity == rhs.per_section_min_velocity
             && per_section_min_acceleration == rhs.per_section_min_acceleration
+            && per_section_max_position == rhs.per_section_max_position
+            && per_section_min_position == rhs.per_section_min_position
             && max_position == rhs.max_position
             && min_position == rhs.min_position
             && enabled == rhs.enabled

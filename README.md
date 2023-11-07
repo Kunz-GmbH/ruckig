@@ -35,7 +35,14 @@ cmake -DCMAKE_BUILD_TYPE=Release ..
 make
 ```
 
-To install Ruckig in a system-wide directory, use `(sudo) make install`. An example of using Ruckig in your CMake project is given by `examples/CMakeLists.txt`. However, you can also include Ruckig as a directory within your project and call `add_subdirectory(ruckig)` in your parent `CMakeLists.txt`. To enable the [Online API](http://api.ruckig.com/docs) for intermediate waypoints, just pass the `BUILD_ONLINE_CLIENT` flag to CMake.
+To install Ruckig in a system-wide directory, you can either use `(sudo) make install` or install it as debian package using cpack by running
+
+```bash
+cpack
+sudo dpkg -i ruckig*.deb
+```
+
+An example of using Ruckig in your CMake project is given by `examples/CMakeLists.txt`. However, you can also include Ruckig as a directory within your project and call `add_subdirectory(ruckig)` in your parent `CMakeLists.txt`.
 
 Ruckig is also available as a Python module, in particular for development or debugging purposes. The Ruckig *Community Version* can be installed from [PyPI](https://pypi.org/project/ruckig/) via
 ```bash
@@ -94,7 +101,7 @@ Within the control loop, you need to update the *current state* of the input par
 
 ### Intermediate Waypoints
 
-The Ruckig Community Version now supports intermediate waypoints via a [remote API](http://api.ruckig.com/docs). Make sure to include `-DBUILD_ONLINE_CLIENT=ON` as a CMake flag when compiling - the PyPI Python version should bring that out of the box. To allocate the necessary memory for a variable number of waypoints beforehand, we need to pass the maximum number of waypoints to Ruckig via
+The Ruckig Community Version now supports intermediate waypoints via a [cloud API](http://api.ruckig.com/docs). To allocate the necessary memory for a variable number of waypoints beforehand, we need to pass the maximum number of waypoints to Ruckig via
 ```.cpp
 Ruckig<6> otg {0.001, 8};
 InputParameter<6> input {8};
@@ -107,9 +114,9 @@ input.intermediate_positions = {
   {0.8, ...},
 };
 ```
-As soon as at least one intermediate positions is given, the Ruckig Community Version switches to the mentioned (of course, non real-time capable) remote API. If you require real-time calculation on your own hardware, please contact us for the *Ruckig Pro Version*.
+As soon as at least one intermediate positions is given, the Ruckig Community Version switches to the mentioned (of course, non real-time capable) cloud API. If you require real-time calculation on your own hardware, please contact us for the *Ruckig Pro Version*.
 
-When using *intermediate positions*, both the underlying motion planning problem as well as its calculation changes significantly. In particular, there are some fundamental limitations for jerk-limited online trajectory generation regarding the usage of waypoints. Please find more information about these limitations [here](https://docs.ruckig.com/md_pages_intermediate_waypoints.html), and in general we recommend to use
+When using *intermediate positions*, both the underlying motion planning problem as well as its calculation changes significantly. In particular, there are some fundamental limitations for jerk-limited online trajectory generation regarding the usage of waypoints. Please find more information about these limitations [here](https://docs.ruckig.com/md_pages__intermediate_waypoints.html), and in general we recommend to use
 ```.cpp
 input.intermediate_positions = otg.filter_intermediate_positions(input.intermediate_positions, {0.1, ...});
 ```
@@ -322,7 +329,7 @@ Note that `DynamicDOFs` corresponds to `DOFs = 0`. We've included a range of exa
 
 ## Tests and Numerical Stability
 
-The current test suite validates over 5.000.000.000 random trajectories as well as many additional edge cases. The numerical exactness is tested for the final position and final velocity to be within `1e-8`, for the final acceleration to be within `1e-10`, and for the velocity, acceleration and jerk limit to be within of a numerical error of `1e-12`. These are absolute values - we suggest to scale your input so that these correspond to your required precision of the system. For example, for most real-world systems we suggest to use input values in `[m]` (instead of e.g. `[mm]`), as `1e-8m` is sufficient precise for practical trajectory generation. Furthermore, all kinematic limits should be below `1e12`. The maximal supported trajectory duration is `7e3`, and you can [scale your input parameter](https://github.com/pantor/ruckig/issues/139#issuecomment-1280730316) to avoid that limitation. Note that Ruckig will also output values outside of this range, there is however no guarantee for correctness.
+The current test suite validates over 5.000.000.000 random trajectories as well as many additional edge cases. The numerical exactness is tested for the final position and final velocity to be within `1e-8`, for the final acceleration to be within `1e-10`, and for the velocity, acceleration and jerk limit to be within of a numerical error of `1e-12`. These are absolute values - we suggest to scale your input so that these correspond to your required precision of the system. For example, for most real-world systems we suggest to use input values in `[m]` (instead of e.g. `[mm]`), as `1e-8m` is sufficient precise for practical trajectory generation. Furthermore, all kinematic limits should be below `1e12`. The maximal supported trajectory duration is `7e3`. Note that Ruckig will also output values outside of this range, there is however no guarantee for correctness. The Ruckig Pro version has additional tools to increase the numerical range and improve reliability.
 
 
 ## Benchmark
@@ -355,8 +362,9 @@ Ruckig is used by over hundred research labs, companies, and open-source project
 - [Fuzzy Logic Robotics](https://flr.io)
 - [Gestalt Robotics](https://www.gestalt-robotics.com)
 - [Struckig](https://github.com/stefanbesler/struckig), a port of Ruckig to Structered Text (ST - IEC61131-3) for usage on PLCs.
+- [Scanlab](https://www.scanlab.de/de) for controlling lasers.
 - [Frankx](https://github.com/pantor/frankx) for controlling the Franka Emika robot arm.
-- [Wiredworks](https://wiredworks.com) coded a simple [GUI](https://github.com/wiredworks/ruckig-showcase)
+- [Wiredworks](https://wiredworks.com) made a simple Kivy [GUI application](https://github.com/wiredworks/ruckig-showcase)
 - and many others!
 
 

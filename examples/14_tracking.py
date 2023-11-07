@@ -1,12 +1,6 @@
 # Only with Ruckig Pro
 
 from math import sin, cos
-from pathlib import Path
-from sys import path
-
-# Path to the build directory including a file similar to 'ruckig.cpython-37m-x86_64-linux-gnu'.
-build_path = Path(__file__).parent.absolute().parent / 'build'
-path.insert(0, str(build_path))
 
 from ruckig import Trackig, TargetState, InputParameter, OutputParameter
 
@@ -72,6 +66,9 @@ if __name__ == '__main__':
 
 
     # Plot the trajectory
+    # from pathlib import Path
+    # project_path = Path(__file__).parent.parent.absolute()
+
     # import numpy as np
     # import matplotlib.pyplot as plt
 
@@ -86,4 +83,4 @@ if __name__ == '__main__':
     # plt.grid(True)
     # plt.legend()
 
-    # plt.savefig(Path(__file__).parent.absolute() / '13_trajectory.pdf')
+    # plt.savefig(project_path / 'examples' / '13_trajectory.pdf')

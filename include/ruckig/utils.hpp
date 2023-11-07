@@ -1,15 +1,15 @@
 #pragma once
 
 #include <array>
-#include <string>
-#include <sstream>
 #include <iomanip>
+#include <sstream>
+#include <string>
 #include <tuple>
 #include <type_traits>
 #include <vector>
 
-namespace ruckig {
 
+namespace ruckig {
 
 //! Constant for indicating a dynamic (run-time settable) number of DoFs
 constexpr static size_t DynamicDOFs {0};

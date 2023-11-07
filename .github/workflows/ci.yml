@@ -10,7 +10,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        cmake_flags: ["", " -DBUILD_ONLINE_CLIENT=ON "]
+        cmake_flags: ["", " -DBUILD_CLOUD_CLIENT=OFF "]
         include:
           - name: ubuntu-20.04-gcc-5
             os: ubuntu-20.04
@@ -27,7 +27,7 @@ jobs:
       run: |
         git clone https://github.com/pybind/pybind11.git
         cd pybind11
-        git checkout v2.10.3
+        git checkout v2.11.1
 
     - name: Set compiler version and patch C++11
       if: matrix.name == 'ubuntu-20.04-gcc-5'
@@ -42,10 +42,14 @@ jobs:
         wget -c http://archive.ubuntu.com/ubuntu/pool/universe/g/gcc-5/libstdc++-5-dev_5.5.0-12ubuntu1_amd64.deb
         wget -c http://archive.ubuntu.com/ubuntu/pool/universe/g/gcc-5/g++-5_5.5.0-12ubuntu1_amd64.deb
         sudo apt install ./g++-5_5.5.0-12ubuntu1_amd64.deb ./gcc-5_5.5.0-12ubuntu1_amd64.deb ./gcc-5-base_5.5.0-12ubuntu1_amd64.deb ./cpp-5_5.5.0-12ubuntu1_amd64.deb ./libisl15_0.18-4_amd64.deb ./libgcc-5-dev_5.5.0-12ubuntu1_amd64.deb ./libasan2_5.5.0-12ubuntu1_amd64.deb ./libmpx0_5.5.0-12ubuntu1_amd64.deb ./libstdc++-5-dev_5.5.0-12ubuntu1_amd64.deb
-        
+
         echo "CC=gcc-${{ matrix.version }}" >> $GITHUB_ENV
         echo "CXX=g++-${{ matrix.version }}" >> $GITHUB_ENV
         bash scripts/patch-c++11.sh inplace
+
+    - name: Install valgrind
+      if: matrix.os == 'ubuntu-latest'
+      run: sudo apt-get update && sudo apt-get install -y valgrind
 
     - name: Configure and make
       run: |
@@ -53,24 +57,46 @@ jobs:
         cmake --build build --config Release -j2
 
     - name: Run C++ Examples
+      working-directory: build
       run: |
-        ./build/example-1_position > "$HIDDEN"
-        ./build/example-2_position_offline > "$HIDDEN"
-        ./build/example-5_velocity > "$HIDDEN"
-        ./build/example-6_stop > "$HIDDEN"
-        ./build/example-7_minimum_duration > "$HIDDEN"
-        ./build/example-9_dynamic_dofs > "$HIDDEN"
+        ./example-01_position > "$HIDDEN"
+        ./example-02_position_offline > "$HIDDEN"
+        ./example-05_velocity > "$HIDDEN"
+        ./example-06_stop > "$HIDDEN"
+        ./example-07_minimum_duration > "$HIDDEN"
+        ./example-09_dynamic_dofs > "$HIDDEN"
 
     - name: Run Python Examples
       if: matrix.name != 'ubuntu-20.04-gcc-5'
       run: |
-        python3 ./examples/1_position.py > "$HIDDEN"
-        python3 ./examples/2_position_offline.py > "$HIDDEN"
-        python3 ./examples/5_velocity.py > "$HIDDEN"
-        python3 ./examples/6_stop.py > "$HIDDEN"
-        python3 ./examples/7_minimum_duration.py > "$HIDDEN"
+        python3 ./examples/01_position.py > "$HIDDEN"
+        python3 ./examples/02_position_offline.py > "$HIDDEN"
+        python3 ./examples/05_velocity.py > "$HIDDEN"
+        python3 ./examples/06_stop.py > "$HIDDEN"
+        python3 ./examples/07_minimum_duration.py > "$HIDDEN"
+      env:
+        PYTHONPATH: build
 
     - name: Test
       if: matrix.os == 'ubuntu-latest'
       run: |
-        env CTEST_OUTPUT_ON_FAILURE=1 ./build/test-target 5000000
+        ./build/test-target 5000000
+      env:
+        CTEST_OUTPUT_ON_FAILURE: 1
+
+    - name: Memory Test
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        ctest --test-dir ./build -T memcheck
+
+
+  lint-python:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Lint Python
+      run: |
+        python3 -m pip install ruff
+        ruff examples test

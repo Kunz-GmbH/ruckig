@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
-
-project(ruckig VERSION 0.9.3 LANGUAGES CXX)
+set(RUCKIG_VERSION 0.11.0)
+project(ruckig VERSION ${RUCKIG_VERSION} LANGUAGES CXX)
 
 
 include(GNUInstallDirs)
@@ -9,11 +9,10 @@ include(GNUInstallDirs)
 
 option(BUILD_EXAMPLES "Build example programs" ON)
 option(BUILD_PYTHON_MODULE "Build python module with pybind11" OFF)
-option(BUILD_ONLINE_CLIENT "Build online client to calculate Ruckig Pro trajectories" OFF)
+option(BUILD_CLOUD_CLIENT "Build cloud client to calculate Ruckig Pro trajectories remotely" ON)
 option(BUILD_TESTS "Build tests" ON)
 option(BUILD_BENCHMARK "Build benchmark" OFF)
 option(BUILD_SHARED_LIBS "Build as shared library" ON)
-option(EXPOSE_INTERNAL "Expose some internal classes and methods" OFF)
 
 if(WIN32 AND BUILD_SHARED_LIBS)
   option(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS "On Windows, export all symbols when building a shared library." ON)
@@ -22,14 +21,16 @@ endif()
 
 add_library(ruckig
   src/ruckig/brake.cpp
-  src/ruckig/position-second-step1.cpp
-  src/ruckig/position-second-step2.cpp
-  src/ruckig/position-third-step1.cpp
-  src/ruckig/position-third-step2.cpp
-  src/ruckig/velocity-second-step1.cpp
-  src/ruckig/velocity-second-step2.cpp
-  src/ruckig/velocity-third-step1.cpp
-  src/ruckig/velocity-third-step2.cpp
+  src/ruckig/position_first_step1.cpp
+  src/ruckig/position_first_step2.cpp
+  src/ruckig/position_second_step1.cpp
+  src/ruckig/position_second_step2.cpp
+  src/ruckig/position_third_step1.cpp
+  src/ruckig/position_third_step2.cpp
+  src/ruckig/velocity_second_step1.cpp
+  src/ruckig/velocity_second_step2.cpp
+  src/ruckig/velocity_third_step1.cpp
+  src/ruckig/velocity_third_step2.cpp
 )
 add_library(ruckig::ruckig ALIAS ruckig)
 
@@ -45,30 +46,25 @@ if(MSVC)
   target_compile_definitions(ruckig PUBLIC _USE_MATH_DEFINES)
 endif()
 
-if(EXPOSE_INTERNAL)
-  target_compile_definitions(ruckig PUBLIC WITH_EXPOSE_INTERNAL)
-endif()
 
-
-if(BUILD_ONLINE_CLIENT)
+if(BUILD_CLOUD_CLIENT)
+  target_sources(ruckig PRIVATE src/ruckig/cloud_client.cpp)
   target_include_directories(ruckig PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third_party>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   )
-  target_compile_definitions(ruckig PUBLIC WITH_ONLINE_CLIENT WITH_SERIALIZATION)
+  target_compile_definitions(ruckig PUBLIC WITH_CLOUD_CLIENT)
 endif()
 
 
 if(BUILD_EXAMPLES)
-  set(EXAMPLES_LIST 1_position 2_position_offline 5_velocity 6_stop 7_minimum_duration 9_dynamic_dofs)
+  set(EXAMPLES_LIST 01_position 02_position_offline 05_velocity 06_stop 07_minimum_duration 09_dynamic_dofs 12_custom_vector_type 13_custom_vector_type_dynamic_dofs)
+  if(TARGET Eigen3::Eigen)
+    list(APPEND EXAMPLES_LIST 11_eigen_vector_type)
+  endif()
 
-  if(BUILD_ONLINE_CLIENT)
-    list(APPEND EXAMPLES_LIST 3_waypoints 4_waypoints_online 8_per_section_minimum_duration 10_dynamic_dofs_waypoints)
-  else()
-    list(APPEND EXAMPLES_LIST 12_custom_vector_type 13_custom_vector_type_dynamic_dofs)
-    if(TARGET Eigen3::Eigen)
-      list(APPEND EXAMPLES_LIST 11_eigen_vector_type)
-    endif()
+  if(BUILD_CLOUD_CLIENT)
+    list(APPEND EXAMPLES_LIST 03_waypoints 04_waypoints_online 08_per_section_minimum_duration 10_dynamic_dofs_waypoints)
   endif()
 
   foreach(example IN LISTS EXAMPLES_LIST)
@@ -89,8 +85,8 @@ if(BUILD_PYTHON_MODULE)
   pybind11_add_module(python_ruckig src/ruckig/python.cpp)
   target_compile_features(python_ruckig PUBLIC cxx_std_17)
   target_link_libraries(python_ruckig PUBLIC ruckig)
-  if(BUILD_ONLINE_CLIENT)
-    target_compile_definitions(python_ruckig PUBLIC WITH_ONLINE_CLIENT)
+  if(BUILD_CLOUD_CLIENT)
+    target_compile_definitions(python_ruckig PUBLIC WITH_CLOUD_CLIENT)
   endif()
 
   set_target_properties(python_ruckig PROPERTIES OUTPUT_NAME ruckig)
@@ -144,7 +140,7 @@ install(FILES
 if(BUILD_TESTS)
   enable_testing()
 
-  add_executable(test-target test/test-target.cpp test/test-target-known.cpp)
+  add_executable(test-target test/test_target.cpp test/test_target_known.cpp)
 
   target_link_libraries(test-target PRIVATE ruckig)
   target_include_directories(test-target PRIVATE third_party)
@@ -152,6 +148,15 @@ if(BUILD_TESTS)
     target_compile_options(test-target PRIVATE /W4)
   else()
     target_compile_options(test-target PRIVATE -Wall -Wextra)
+    find_program(MEMORYCHECK_COMMAND valgrind)
+    set(MEMORYCHECK_COMMAND_OPTIONS
+       "--tool=memcheck \
+       --leak-check=full \
+       --trace-children=yes \
+       --track-origins=yes \
+       --keep-debuginfo=yes \
+       --error-exitcode=100")
+    include(CTest)
   endif()
 
   add_test(NAME test-target COMMAND test-target)
@@ -159,7 +164,20 @@ endif()
 
 
 if(BUILD_BENCHMARK)
-  add_executable(benchmark-target test/benchmark-target.cpp)
+  add_executable(benchmark-target test/benchmark_target.cpp)
 
   target_link_libraries(benchmark-target PRIVATE ruckig)
 endif()
+
+
+# Enable Packaging
+set(CPACK_PACKAGE_VENDOR "Lars Berscheid")
+set(CPACK_GENERATOR "DEB")
+set(CPACK_PACKAGE_VERSION ${RUCKIG_VERSION})
+set(CPACK_SYSTEM_NAME ${CMAKE_HOST_SYSTEM_PROCESSOR})
+
+# Settings for Debian package
+set(CPACK_DEBIAN_PACKAGE_VERSION ${CPACK_PACKAGE_VERSION}-1)
+set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Lars Berscheid")
+set(CPACK_DEBIAN_PACKAGE_CONFLICTS "ros-melodic-ruckig, ros-noetic-ruckig, ros-foxy-ruckig, ros-galactic-ruckig, ros-humble-ruckig, ros-rolling-ruckig")
+include(CPack)

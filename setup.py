@@ -38,7 +38,6 @@ class CMakeBuild(build_ext):
             '-DEXAMPLE_VERSION_INFO={}'.format(self.distribution.get_version()),
             '-DCMAKE_BUILD_TYPE=' + build_type,
             '-DBUILD_PYTHON_MODULE=ON',
-            '-DBUILD_ONLINE_CLIENT=ON',
             '-DBUILD_EXAMPLES=OFF',
             '-DBUILD_TESTS=OFF',
             '-DBUILD_SHARED_LIBS=OFF',
@@ -54,7 +53,7 @@ class CMakeBuild(build_ext):
 
 setup(
     name='ruckig',
-    version='0.9.3',
+    version='0.11.0',
     description='Instantaneous Motion Generation for Robots and Machines.',
     long_description=long_description,
     long_description_content_type='text/markdown',

@@ -1,4 +1,4 @@
-// This example shows the usage of intermediate waypoints. It will only work with Ruckig Pro or enabled Online API.
+// This example shows the usage of intermediate waypoints. It will only work with Ruckig Pro or enabled cloud API.
 
 #include <iostream>
 
@@ -18,29 +18,24 @@ int main() {
     OutputParameter<DOFs> output {max_number_of_waypoints};
 
     // Set input parameters
-    input.current_position = {0.8, 0.0, 0.5};
-    input.current_velocity = {0.0, 0.0, 0.0};
-    input.current_acceleration = {0.0, 0.0, 0.0};
+    input.current_position = {0.2, 0.0, -0.3};
+    input.current_velocity = {0.0, 0.2, 0.0};
+    input.current_acceleration = {0.0, 0.6, 0.0};
 
     input.intermediate_positions = {
         {1.4, -1.6, 1.0},
         {-0.6, -0.5, 0.4},
         {-0.4, -0.35, 0.0},
-        {-0.2, 0.35, -0.1},
-        {0.2, 0.5, -0.1},
         {0.8, 1.8, -0.1}
     };
 
-    input.target_position = {0.5, 1.2, 0.0};
-    input.target_velocity = {0.0, 0.0, 0.0};
-    input.target_acceleration = {0.0, 0.0, 0.0};
+    input.target_position = {0.5, 1.0, 0.0};
+    input.target_velocity = {0.2, 0.0, 0.3};
+    input.target_acceleration = {0.0, 0.1, -0.1};
 
-    input.max_velocity = {3.0, 2.0, 2.0};
-    input.max_acceleration = {6.0, 4.0, 4.0};
-    input.max_jerk = {16.0, 10.0, 20.0};
-
-    // Define a minimum duration per section of the trajectory (number waypoints + 1)
-    input.per_section_minimum_duration = {0, 2.0, 0.0, 1.0, 0.0, 2.0, 0};
+    input.max_velocity = {1.0, 2.0, 1.0};
+    input.max_acceleration = {3.0, 2.0, 2.0};
+    input.max_jerk = {6.0, 10.0, 20.0};
 
     std::cout << "t | p1 | p2 | p3" << std::endl;
     double calculation_duration {0.0};

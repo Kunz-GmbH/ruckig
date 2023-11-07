@@ -1,10 +1,4 @@
 from copy import copy
-from pathlib import Path
-from sys import path
-
-# Path to the build directory including a file similar to 'ruckig.cpython-37m-x86_64-linux-gnu'.
-build_path = Path(__file__).parent.absolute().parent / 'build'
-path.insert(0, str(build_path))
 
 from ruckig import InputParameter, OutputParameter, Result, Ruckig
 
@@ -28,7 +22,7 @@ if __name__ == '__main__':
     inp.max_jerk = [4.0, 3.0, 2.0]
 
     # Set minimum duration (equals the trajectory duration when target velocity and acceleration are zero)
-    inp.minimum_duration = 5.0;
+    inp.minimum_duration = 5.0
 
 
     print('\t'.join(['t'] + [str(i) for i in range(otg.degrees_of_freedom)]))
@@ -51,7 +45,11 @@ if __name__ == '__main__':
     print(f'Trajectory duration: {first_output.trajectory.duration:0.4f} [s]')
 
     # Plot the trajectory
-    # path.insert(0, str(Path(__file__).parent.absolute().parent / 'test'))
+    # from pathlib import Path
+    # import sys
+    # project_path = Path(__file__).parent.parent.absolute()
+    # sys.path.append(str(project_path / 'test'))  # For plotter.py
+
     # from plotter import Plotter
 
-    # Plotter.plot_trajectory(Path(__file__).parent.absolute() / '7_trajectory.pdf', otg, inp, out_list, plot_jerk=False)
+    # Plotter.plot_trajectory(project_path / 'examples' / '07_trajectory.pdf', otg, inp, out_list, plot_jerk=False)

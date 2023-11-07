@@ -1,12 +1,6 @@
-# This example shows the usage of intermediate waypoints. It will only work with Ruckig Pro or enabled Online API (e.g. default when installed by pip / PyPI).
+# This example shows the usage of intermediate waypoints. It will only work with Ruckig Pro or enabled cloud API (e.g. default when installed by pip / PyPI).
 
 from copy import copy
-from pathlib import Path
-from sys import path
-
-# Path to the build directory including a file similar to 'ruckig.cpython-37m-x86_64-linux-gnu'.
-build_path = Path(__file__).parent.absolute().parent / 'build'
-path.insert(0, str(build_path))
 
 from ruckig import InputParameter, OutputParameter, Result, Ruckig
 
@@ -17,29 +11,24 @@ if __name__ == '__main__':
     inp = InputParameter(3)  # DoFs
     out = OutputParameter(3, 10)  # DoFs, maximum number of intermediate waypoints for memory allocation
 
-    inp.current_position = [0.8, 0, 0.5]
-    inp.current_velocity = [0, 0, 0]
-    inp.current_acceleration = [0, 0, 0]
+    inp.current_position = [0.2, 0, -0.3]
+    inp.current_velocity = [0, 0.2, 0]
+    inp.current_acceleration = [0, 0.6, 0]
 
     inp.intermediate_positions = [
         [1.4, -1.6, 1.0],
         [-0.6, -0.5, 0.4],
         [-0.4, -0.35, 0.0],
-        [-0.2, 0.35, -0.1],
-        [0.2, 0.5, -0.1],
-        [0.8, 1.8, -0.1]
+        [0.8, 1.8, -0.1],
     ]
 
-    inp.target_position = [0.5, 1.2, 0]
-    inp.target_velocity = [0, 0, 0]
-    inp.target_acceleration = [0, 0, 0]
+    inp.target_position = [0.5, 1, 0]
+    inp.target_velocity = [0.2, 0, 0.3]
+    inp.target_acceleration = [0, 0.1, -0.1]
 
-    inp.max_velocity = [3, 2, 2]
-    inp.max_acceleration = [6, 4, 4]
-    inp.max_jerk = [16, 10, 20]
-
-    # Define a minimum duration per section of the trajectory (number waypoints + 1)
-    inp.per_section_minimum_duration = [0, 2.0, 0.0, 1.0, 0.0, 2.0, 0]
+    inp.max_velocity = [1, 2, 1]
+    inp.max_acceleration = [3, 2, 2]
+    inp.max_jerk = [6, 10, 20]
 
 
     print('\t'.join(['t'] + [str(i) for i in range(otg.degrees_of_freedom)]))
@@ -62,7 +51,11 @@ if __name__ == '__main__':
     print(f'Trajectory duration: {first_output.trajectory.duration:0.4f} [s]')
 
     # Plot the trajectory
-    # path.insert(0, str(Path(__file__).parent.absolute().parent / 'test'))
+    # from pathlib import Path
+    # import sys
+    # project_path = Path(__file__).parent.parent.absolute()
+    # sys.path.append(str(project_path / 'test'))  # For plotter.py
+
     # from plotter import Plotter
 
-    # Plotter.plot_trajectory(Path(__file__).parent.absolute() / '8_trajectory.pdf', otg, inp, out_list, plot_jerk=False)
+    # Plotter.plot_trajectory(project_path / 'examples' / '03_trajectory.pdf', otg, inp, out_list, plot_jerk=False)

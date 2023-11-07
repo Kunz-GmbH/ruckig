@@ -1,12 +1,6 @@
 from copy import copy
-from pathlib import Path
-from sys import path
 
-# Path to the build directory including a file similar to 'ruckig.cpython-37m-x86_64-linux-gnu'.
-build_path = Path(__file__).parent.absolute().parent / 'build'
-path.insert(0, str(build_path))
-
-from ruckig import InputParameter, OutputParameter, Result, Ruckig
+from ruckig import InputParameter, OutputParameter, Result, Ruckig, ControlInterface
 
 
 if __name__ == '__main__':
@@ -15,18 +9,18 @@ if __name__ == '__main__':
     inp = InputParameter(3)
     out = OutputParameter(3)
 
-    # Set input parameters
+    inp.control_interface = ControlInterface.Velocity
+
     inp.current_position = [0.0, 0.0, 0.5]
-    inp.current_velocity = [0.0, -2.2, -0.5]
+    inp.current_velocity = [3.0, -2.2, -0.5]
     inp.current_acceleration = [0.0, 2.5, -0.5]
 
-    inp.target_position = [5.0, -2.0, -3.5]
-    inp.target_velocity = [0.0, -0.5, -2.0]
+    inp.target_velocity = [0.0, -0.5, -1.5]
     inp.target_acceleration = [0.0, 0.0, 0.5]
 
-    inp.max_velocity = [3.0, 1.0, 3.0]
     inp.max_acceleration = [3.0, 2.0, 1.0]
-    inp.max_jerk = [4.0, 3.0, 2.0]
+    inp.max_jerk = [6.0, 6.0, 4.0]
+
 
     print('\t'.join(['t'] + [str(i) for i in range(otg.degrees_of_freedom)]))
 
@@ -48,7 +42,11 @@ if __name__ == '__main__':
     print(f'Trajectory duration: {first_output.trajectory.duration:0.4f} [s]')
 
     # Plot the trajectory
-    # path.insert(0, str(Path(__file__).parent.absolute().parent / 'test'))
+    # from pathlib import Path
+    # import sys
+    # project_path = Path(__file__).parent.parent.absolute()
+    # sys.path.append(str(project_path / 'test'))  # For plotter.py
+
     # from plotter import Plotter
 
-    # Plotter.plot_trajectory(Path(__file__).parent.absolute() / '1_trajectory.pdf', otg, inp, out_list, plot_jerk=False)
+    # Plotter.plot_trajectory(project_path / 'examples' / '05_trajectory.pdf', otg, inp, out_list, plot_jerk=False)

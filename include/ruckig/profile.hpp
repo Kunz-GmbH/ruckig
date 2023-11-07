@@ -8,10 +8,6 @@
 #include <limits>
 #include <optional>
 
-#ifdef WITH_SERIALIZATION
-#include <json/json.hpp>
-#endif
-
 #include <ruckig/brake.hpp>
 #include <ruckig/roots.hpp>
 #include <ruckig/utils.hpp>
@@ -29,7 +25,9 @@ struct PositionExtrema {
 };
 
 
-//! The state profile for position, velocity, acceleration and jerk for a single DoF
+//! @brief A single-dof kinematic profile with position, velocity, acceleration and jerk
+//!
+//! The class members are only available in the Ruckig Community Version.
 class Profile {
     constexpr static double v_eps {1e-12};
     constexpr static double a_eps {1e-12};
@@ -361,6 +359,47 @@ public:
     }
 
 
+    // For first-order position interface
+    template<ControlSigns control_signs, ReachedLimits limits>
+    bool check_for_first_order(double vUp) {
+        // ReachedLimits::VEL
+        if (t[3] < 0.0) {
+            return false;
+        }
+
+        t_sum = {0, 0, 0, t[3], t[3], t[3], t[3]};
+        if (t_sum.back() > t_max) { // For numerical reasons, is that needed?
+            return false;
+        }
+
+        j = {0, 0, 0, 0, 0, 0, 0};
+        a = {0, 0, 0, 0, 0, 0, 0, af};
+        v = {0, 0, 0, t[3] > 0 ? vUp : 0, 0, 0, 0, vf};
+        for (size_t i = 0; i < 7; ++i) {
+            p[i+1] = p[i] + t[i] * (v[i] + t[i] * a[i] / 2);
+        }
+
+        this->control_signs = control_signs;
+        this->limits = limits;
+
+        direction = (vUp > 0) ? Profile::Direction::UP : Profile::Direction::DOWN;
+
+        return std::abs(p.back() - pf) < p_precision;
+    }
+
+    template<ControlSigns control_signs, ReachedLimits limits>
+    inline bool check_for_first_order_with_timing(double, double vUp) {
+        // Time doesn't need to be checked as every profile has a: tf - ... equation
+        return check_for_first_order<control_signs, limits>(vUp); // && (std::abs(t_sum.back() - tf) < t_precision);
+    }
+
+    template<ControlSigns control_signs, ReachedLimits limits>
+    inline bool check_for_first_order_with_timing(double tf, double vUp, double vMax, double vMin) {
+        return (vMin - v_eps < vUp) && (vUp < vMax + v_eps) && check_for_first_order_with_timing<control_signs, limits>(tf, vUp);
+    }
+
+
+
     // Secondary features
     static void check_position_extremum(double t_ext, double t_sum, double t, double p, double v, double a, double j, PositionExtrema& ext) {
         if (0 < t_ext && t_ext < t) {
@@ -447,7 +486,7 @@ public:
                 continue;
             }
 
-            for (const double _t: roots::solveCub(j[i]/6, a[i]/2, v[i], p[i]-pt)) {
+            for (const double _t: roots::solve_cubic(j[i]/6, a[i]/2, v[i], p[i]-pt)) {
                 if (0 < _t && _t <= t[i]) {
                     time = offset + _t + ((i > 0) ? t_sum[i-1] : 0.0);
                     std::tie(std::ignore, vt, at) = integrate(_t, p[i], v[i], a[i], j[i]);
@@ -488,10 +527,6 @@ public:
         }
         return result;
     }
-
-#ifdef WITH_SERIALIZATION
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE(Profile, t, t_sum, j, a, v, p, pf, vf, af, brake, accel)
-#endif
 };
 
 } // namespace ruckig

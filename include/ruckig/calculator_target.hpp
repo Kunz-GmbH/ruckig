@@ -205,10 +205,10 @@ private:
 public:
     size_t degrees_of_freedom;
 
-    template <size_t D = DOFs, typename std::enable_if<(D >= 1), int>::type = 0>
+    template<size_t D = DOFs, typename std::enable_if<(D >= 1), int>::type = 0>
     explicit TargetCalculator(): degrees_of_freedom(DOFs) { }
 
-    template <size_t D = DOFs, typename std::enable_if<(D == 0), int>::type = 0>
+    template<size_t D = DOFs, typename std::enable_if<(D == 0), int>::type = 0>
     explicit TargetCalculator(size_t dofs): degrees_of_freedom(dofs) {
         blocks.resize(dofs);
         inp_min_velocity.resize(dofs);
@@ -225,12 +225,17 @@ public:
     template<bool throw_error>
     Result calculate(const InputParameter<DOFs, CustomVector>& inp, Trajectory<DOFs, CustomVector>& traj, double delta_time, bool& was_interrupted) {
         was_interrupted = false;
-#if defined WITH_ONLINE_CLIENT
+#if defined WITH_CLOUD_CLIENT
         traj.resize(0);
 #endif
 
         for (size_t dof = 0; dof < degrees_of_freedom; ++dof) {
             auto& p = traj.profiles[0][dof];
+
+            inp_min_velocity[dof] = inp.min_velocity ? inp.min_velocity.value()[dof] : -inp.max_velocity[dof];
+            inp_min_acceleration[dof] = inp.min_acceleration ? inp.min_acceleration.value()[dof] : -inp.max_acceleration[dof];
+            inp_per_dof_control_interface[dof] = inp.per_dof_control_interface ? inp.per_dof_control_interface.value()[dof] : inp.control_interface;
+            inp_per_dof_synchronization[dof] = inp.per_dof_synchronization ? inp.per_dof_synchronization.value()[dof] : inp.synchronization;
 
             if (!inp.enabled[dof]) {
                 p.p.back() = inp.current_position[dof];
@@ -243,18 +248,13 @@ public:
                 continue;
             }
 
-            inp_min_velocity[dof] = inp.min_velocity ? inp.min_velocity.value()[dof] : -inp.max_velocity[dof];
-            inp_min_acceleration[dof] = inp.min_acceleration ? inp.min_acceleration.value()[dof] : -inp.max_acceleration[dof];
-            inp_per_dof_control_interface[dof] = inp.per_dof_control_interface ? inp.per_dof_control_interface.value()[dof] : inp.control_interface;
-            inp_per_dof_synchronization[dof] = inp.per_dof_synchronization ? inp.per_dof_synchronization.value()[dof] : inp.synchronization;
-
             // Calculate brake (if input exceeds or will exceed limits)
             switch (inp_per_dof_control_interface[dof]) {
                 case ControlInterface::Position: {
                     if (!std::isinf(inp.max_jerk[dof])) {
                         p.brake.get_position_brake_trajectory(inp.current_velocity[dof], inp.current_acceleration[dof], inp.max_velocity[dof], inp_min_velocity[dof], inp.max_acceleration[dof], inp_min_acceleration[dof], inp.max_jerk[dof]);
                         // p.accel.get_position_brake_trajectory(inp.target_velocity[dof], inp.target_acceleration[dof], inp.max_velocity[dof], inp_min_velocity[dof], inp.max_acceleration[dof], inp_min_acceleration[dof], inp.max_jerk[dof]);
-                    } else {
+                    } else if (!std::isinf(inp.max_acceleration[dof])) {
                         p.brake.get_second_order_position_brake_trajectory(inp.current_velocity[dof], inp.max_velocity[dof], inp_min_velocity[dof], inp.max_acceleration[dof], inp_min_acceleration[dof]);
                         // p.accel.get_second_order_position_brake_trajectory(inp.target_velocity[dof], inp.target_acceleration[dof], inp.max_velocity[dof], inp_min_velocity[dof], inp.max_acceleration[dof], inp_min_acceleration[dof]);
                     }
@@ -276,7 +276,7 @@ public:
             if (!std::isinf(inp.max_jerk[dof])) {
                 p.brake.finalize(p.p[0], p.v[0], p.a[0]);
                 // p.accel.finalize(p.pf, p.vf, p.af);
-            } else {
+            } else if (!std::isinf(inp.max_acceleration[dof])) {
                 p.brake.finalize_second_order(p.p[0], p.v[0], p.a[0]);
                 // p.accel.finalize_second_order(p.pf, p.vf, p.af);
             }
@@ -287,8 +287,11 @@ public:
                     if (!std::isinf(inp.max_jerk[dof])) {
                         PositionThirdOrderStep1 step1 {p.p[0], p.v[0], p.a[0], p.pf, p.vf, p.af, inp.max_velocity[dof], inp_min_velocity[dof], inp.max_acceleration[dof], inp_min_acceleration[dof], inp.max_jerk[dof]};
                         found_profile = step1.get_profile(p, blocks[dof]);
-                    } else {
+                    } else if (!std::isinf(inp.max_acceleration[dof])) {
                         PositionSecondOrderStep1 step1 {p.p[0], p.v[0], p.pf, p.vf, inp.max_velocity[dof], inp_min_velocity[dof], inp.max_acceleration[dof], inp_min_acceleration[dof]};
+                        found_profile = step1.get_profile(p, blocks[dof]);
+                    } else {
+                        PositionFirstOrderStep1 step1 {p.p[0], p.pf, inp.max_velocity[dof], inp_min_velocity[dof]};
                         found_profile = step1.get_profile(p, blocks[dof]);
                     }
                 } break;
@@ -413,8 +416,10 @@ public:
                                 case Profile::ControlSigns::UDDU: {
                                     if (!std::isinf(inp.max_jerk[dof])) {
                                         found_time_synchronization &= p.check_with_timing<Profile::ControlSigns::UDDU, Profile::ReachedLimits::NONE>(t_profile, new_phase_control[dof], inp.max_velocity[dof], inp_min_velocity[dof], inp.max_acceleration[dof], inp_min_acceleration[dof], inp.max_jerk[dof]);
-                                    } else {
+                                    } else if (!std::isinf(inp.max_acceleration[dof])) {
                                         found_time_synchronization &= p.check_for_second_order_with_timing<Profile::ControlSigns::UDDU, Profile::ReachedLimits::NONE>(t_profile, new_phase_control[dof], -new_phase_control[dof], inp.max_velocity[dof], inp_min_velocity[dof], inp.max_acceleration[dof], inp_min_acceleration[dof]);
+                                    } else {
+                                        found_time_synchronization &= p.check_for_first_order_with_timing<Profile::ControlSigns::UDDU, Profile::ReachedLimits::NONE>(t_profile, new_phase_control[dof], inp.max_velocity[dof], inp_min_velocity[dof]);
                                     }
                                 } break;
                                 case Profile::ControlSigns::UDUD: {
@@ -489,8 +494,11 @@ public:
                     if (!std::isinf(inp.max_jerk[dof])) {
                         PositionThirdOrderStep2 step2 {t_profile, p.p[0], p.v[0], p.a[0], p.pf, p.vf, p.af, inp.max_velocity[dof], inp_min_velocity[dof], inp.max_acceleration[dof], inp_min_acceleration[dof], inp.max_jerk[dof]};
                         found_time_synchronization = step2.get_profile(p);
-                    } else {
+                    } else if (!std::isinf(inp.max_acceleration[dof])) {
                         PositionSecondOrderStep2 step2 {t_profile, p.p[0], p.v[0], p.pf, p.vf, inp.max_velocity[dof], inp_min_velocity[dof], inp.max_acceleration[dof], inp_min_acceleration[dof]};
+                        found_time_synchronization = step2.get_profile(p);
+                    } else {
+                        PositionFirstOrderStep2 step2 {t_profile, p.p[0], p.pf, inp.max_velocity[dof], inp_min_velocity[dof]};
                         found_time_synchronization = step2.get_profile(p);
                     }
                 } break;

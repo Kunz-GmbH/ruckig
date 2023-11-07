@@ -17,7 +17,7 @@ PYBIND11_MODULE(ruckig, m) {
     m.doc() = "Instantaneous Motion Generation for Robots and Machines. Real-time and time-optimal trajectory calculation \
 given a target waypoint with position, velocity, and acceleration, starting from any initial state \
 limited by velocity, acceleration, and jerk constraints.";
-    m.attr("__version__")  = "0.9.3";
+    m.attr("__version__")  = "0.11.0";
 
     py::enum_<ControlInterface>(m, "ControlInterface")
         .value("Position", ControlInterface::Position)
@@ -59,13 +59,11 @@ limited by velocity, acceleration, and jerk constraints.";
 
     py::class_<Trajectory<DynamicDOFs>>(m, "Trajectory")
         .def(py::init<size_t>(), "dofs"_a)
-#if defined WITH_ONLINE_CLIENT
+#if defined WITH_CLOUD_CLIENT
         .def(py::init<size_t, size_t>(), "dofs"_a, "max_number_of_waypoints"_a)
 #endif
         .def_readonly("degrees_of_freedom", &Trajectory<DynamicDOFs>::degrees_of_freedom)
-#ifdef WITH_EXPOSE_INTERNAL
         .def_property_readonly("profiles", &Trajectory<DynamicDOFs>::get_profiles)
-#endif
         .def_property_readonly("duration", &Trajectory<DynamicDOFs>::get_duration)
         .def_property_readonly("intermediate_durations", &Trajectory<DynamicDOFs>::get_intermediate_durations)
         .def_property_readonly("independent_min_durations", &Trajectory<DynamicDOFs>::get_independent_min_durations)
@@ -89,7 +87,7 @@ limited by velocity, acceleration, and jerk constraints.";
 
     py::class_<InputParameter<DynamicDOFs>>(m, "InputParameter")
         .def(py::init<size_t>(), "dofs"_a)
-#if defined WITH_ONLINE_CLIENT
+#if defined WITH_CLOUD_CLIENT
         .def(py::init<size_t, size_t>(), "dofs"_a, "max_number_of_waypoints"_a)
 #endif
         .def_readonly("degrees_of_freedom", &InputParameter<DynamicDOFs>::degrees_of_freedom)
@@ -110,6 +108,8 @@ limited by velocity, acceleration, and jerk constraints.";
         .def_readwrite("per_section_max_jerk", &InputParameter<DynamicDOFs>::per_section_max_jerk)
         .def_readwrite("per_section_min_velocity", &InputParameter<DynamicDOFs>::per_section_min_velocity)
         .def_readwrite("per_section_min_acceleration", &InputParameter<DynamicDOFs>::per_section_min_acceleration)
+        .def_readwrite("per_section_max_position", &InputParameter<DynamicDOFs>::per_section_max_position)
+        .def_readwrite("per_section_min_position", &InputParameter<DynamicDOFs>::per_section_min_position)
         .def_readwrite("max_position", &InputParameter<DynamicDOFs>::max_position)
         .def_readwrite("min_position", &InputParameter<DynamicDOFs>::min_position)
         .def_readwrite("enabled", &InputParameter<DynamicDOFs>::enabled)
@@ -127,7 +127,7 @@ limited by velocity, acceleration, and jerk constraints.";
 
     py::class_<OutputParameter<DynamicDOFs>>(m, "OutputParameter")
         .def(py::init<size_t>(), "dofs"_a)
-#if defined WITH_ONLINE_CLIENT
+#if defined WITH_CLOUD_CLIENT
         .def(py::init<size_t, size_t>(), "dofs"_a, "max_number_of_waypoints"_a)
 #endif
         .def_readonly("degrees_of_freedom", &OutputParameter<DynamicDOFs>::degrees_of_freedom)
@@ -150,7 +150,7 @@ limited by velocity, acceleration, and jerk constraints.";
     py::class_<RuckigThrow<DynamicDOFs>>(m, "Ruckig")
         .def(py::init<size_t>(), "dofs"_a)
         .def(py::init<size_t, double>(), "dofs"_a, "delta_time"_a)
-#if defined WITH_ONLINE_CLIENT
+#if defined WITH_CLOUD_CLIENT
         .def(py::init<size_t, double, size_t>(), "dofs"_a, "delta_time"_a, "max_number_of_waypoints"_a=0)
         .def("filter_intermediate_positions", &RuckigThrow<DynamicDOFs>::filter_intermediate_positions, "input"_a, "threshold_distance"_a)
 #endif
@@ -163,7 +163,6 @@ limited by velocity, acceleration, and jerk constraints.";
         .def("calculate", static_cast<Result (RuckigThrow<DynamicDOFs>::*)(const InputParameter<DynamicDOFs>&, Trajectory<DynamicDOFs>&, bool&)>(&RuckigThrow<DynamicDOFs>::calculate), "input"_a, "trajectory"_a, "was_interrupted"_a)
         .def("update", static_cast<Result (RuckigThrow<DynamicDOFs>::*)(const InputParameter<DynamicDOFs>&, OutputParameter<DynamicDOFs>&)>(&RuckigThrow<DynamicDOFs>::update), "input"_a, "output"_a);
 
-#ifdef WITH_EXPOSE_INTERNAL
     py::class_<BrakeProfile>(m, "BrakeProfile")
         .def_readonly("duration", &BrakeProfile::duration)
         .def_readonly("t", &BrakeProfile::t)
@@ -173,20 +172,19 @@ limited by velocity, acceleration, and jerk constraints.";
         .def_readonly("p", &BrakeProfile::p);
 
     py::class_<Profile>(m, "Profile")
-        .def_readonly("limits", &Profile::limits)
-        .def_readonly("direction", &Profile::direction)
-        .def_readonly("control_signs", &Profile::control_signs)
         .def_readonly("t", &Profile::t)
         .def_readonly("t_sum", &Profile::t_sum)
         .def_readonly("j", &Profile::j)
         .def_readonly("a", &Profile::a)
         .def_readonly("v", &Profile::v)
         .def_readonly("p", &Profile::p)
+        .def_readonly("brake", &Profile::brake)
+        .def_readonly("accel", &Profile::accel)
         .def_readonly("pf", &Profile::pf)
         .def_readonly("vf", &Profile::vf)
         .def_readonly("af", &Profile::af)
-        .def_readonly("brake", &Profile::brake)
-        .def_readonly("accel", &Profile::accel)
+        .def_readonly("limits", &Profile::limits)
+        .def_readonly("direction", &Profile::direction)
+        .def_readonly("control_signs", &Profile::control_signs)
         .def("__repr__", &Profile::to_string);
-#endif
 }
