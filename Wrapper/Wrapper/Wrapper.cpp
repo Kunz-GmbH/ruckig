@@ -87,7 +87,7 @@ namespace ruckig {
 		ValueTuple< array<List<CurrentState>^>^, ResultValues> RuckigWrapper::GetPositionsIncludingBrakePosition(double td, Parameter para, int stepLimit, int brakeTrajectoriesLimit, bool useVelocityInterface) {
 
 			ResultValues resultValues{ };
-			array<List<CurrentState>^>^ results = gcnew array< List<CurrentState>^>(stepLimit);
+			array<List<CurrentState>^>^ results = gcnew array< List<CurrentState>^>(brakeTrajectoriesLimit + 1);
 
 			Ruckig<1> otg{ td };
 
@@ -106,7 +106,7 @@ namespace ruckig {
 			input.synchronization = Synchronization::None;
 
 			// workaround for hard kinematic constraints (ruckig tries getting into the constraints without being time optimale)
-			if (para.CurrentVelocity > 0 && para.CurrentVelocity > para.MaxVelocity || para.CurrentVelocity < 0 && para.CurrentVelocity < -para.MaxVelocity) {
+			if (!useVelocityInterface && para.CurrentVelocity > 0 && para.CurrentVelocity > para.MaxVelocity || para.CurrentVelocity < 0 && para.CurrentVelocity < -para.MaxVelocity) {
 				input.current_position = { para.CurrentPosition };
 				input.current_velocity = { para.CurrentVelocity };
 				input.current_acceleration = { para.CurrentAcceleration };
@@ -156,8 +156,7 @@ namespace ruckig {
 			}
 
 			for (auto i = 0; i < brakeTrajectoriesLimit + 1; ++i) {
-				auto counter = 0;
-				results[i] = gcnew List<CurrentState>(brakeTrajectoriesLimit + 1);
+				results[i] = gcnew List<CurrentState>(stepLimit);
 
 				input.current_position = { para.CurrentPosition };
 				input.current_velocity = { para.CurrentVelocity };
@@ -176,27 +175,29 @@ namespace ruckig {
 					input.control_interface = ControlInterface::Velocity;
 				}
 
-				if (useVelocityInterface)
+				if (useVelocityInterface || i != 0) {
 					input.control_interface = ControlInterface::Velocity;
+					use2PhaseChange = false;
+				}
 
+				auto counter = 1;
 				auto braking = false;
 				auto needToSwitchBack = use2PhaseChange;
-				auto oneMoreRound = false;
-				while ((otg.update(input, output) == Result::Working || oneMoreRound) && (stepLimit < 0 || counter < stepLimit)) {
+				while ((otg.update(input, output) == Result::Working || needToSwitchBack) && (stepLimit < 0 || counter < stepLimit + i)) {
 
-					CurrentState lastState{ output.new_position[0], output.new_velocity[0], output.new_acceleration[0] };
-					results[i]->Add(lastState);
-					oneMoreRound = false;
+					if (counter > i) {
+						CurrentState lastState{ output.new_position[0], output.new_velocity[0], output.new_acceleration[0] };
+						results[i]->Add(lastState);
+					}
 
-					if (!braking && !useVelocityInterface && needToSwitchBack && brakeTime1 <= output.time) {
+					if (needToSwitchBack && brakeTime1 <= output.time) {
 						input.control_interface = ControlInterface::Position;
 						input.target_velocity = { para.TargetVelocity };
 						input.max_velocity = { para.MaxVelocity };
 						needToSwitchBack = false;
-						oneMoreRound = true;
 					}
 
-					if (counter == i) {
+					if (counter == i && i != 0) {
 						braking = true;
 						input.control_interface = ControlInterface::Velocity;
 						input.target_velocity = { 0 };
@@ -240,7 +241,7 @@ namespace ruckig {
 			input.synchronization = Synchronization::None;
 
 			// workaround for hard kinematic constraints (ruckig tries getting into the constraints without being time optimale)
-			if (para.CurrentVelocity > 0 && para.CurrentVelocity > para.MaxVelocity || para.CurrentVelocity < 0 && para.CurrentVelocity < -para.MaxVelocity) {
+			if (!useVelocityInterface && para.CurrentVelocity > 0 && para.CurrentVelocity > para.MaxVelocity || para.CurrentVelocity < 0 && para.CurrentVelocity < -para.MaxVelocity) {
 				input.current_position = { para.CurrentPosition };
 				input.current_velocity = { para.CurrentVelocity };
 				input.current_acceleration = { para.CurrentAcceleration };
@@ -289,7 +290,6 @@ namespace ruckig {
 				}
 			}
 
-			auto counter = 0;
 
 			input.current_position = { para.CurrentPosition };
 			input.current_velocity = { para.CurrentVelocity };
@@ -309,12 +309,15 @@ namespace ruckig {
 				input.control_interface = ControlInterface::Velocity;
 			}
 
-			if (useVelocityInterface)
+			if (useVelocityInterface) {
 				input.control_interface = ControlInterface::Velocity;
+				use2PhaseChange = false;
+			}
 
 			auto needToSwitchBack = use2PhaseChange;
 			auto oneMoreRound = false;
-			while ((otg.update(input, output) == Result::Working || oneMoreRound) && (stepLimit < 0 || counter < stepLimit)) {
+			auto counter = 0;
+			while ((otg.update(input, output) == Result::Working || needToSwitchBack) && (stepLimit < 0 || counter < stepLimit - 1)) {
 
 				CurrentState lastState{ output.new_position[0], output.new_velocity[0], output.new_acceleration[0] };
 				results->Add(lastState);
