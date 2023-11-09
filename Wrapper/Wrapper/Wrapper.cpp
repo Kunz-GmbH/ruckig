@@ -104,13 +104,18 @@ namespace ruckig {
 			// TODO ? input.duration_discretization = DurationDiscretization::Discrete;
 			input.control_interface = ControlInterface::Velocity;
 			input.synchronization = Synchronization::None;
+			auto signedMaxVelocity = para.CurrentVelocity > 0 ? para.MaxVelocity : -para.MaxVelocity;
 
 			// workaround for hard kinematic constraints (ruckig tries getting into the constraints without being time optimale)
-			if (!useVelocityInterface && para.CurrentVelocity > 0 && para.CurrentVelocity > para.MaxVelocity || para.CurrentVelocity < 0 && para.CurrentVelocity < -para.MaxVelocity) {
+			if (!useVelocityInterface &&
+				(para.CurrentVelocity > 0 && para.TargetPosition > para.CurrentPosition && para.CurrentVelocity > para.MaxVelocity
+					|| para.CurrentVelocity < 0 && para.TargetPosition < para.CurrentPosition && para.CurrentVelocity < -para.MaxVelocity)) {
+
 				input.current_position = { para.CurrentPosition };
 				input.current_velocity = { para.CurrentVelocity };
 				input.current_acceleration = { para.CurrentAcceleration };
-				input.target_velocity = { para.MaxVelocity };
+
+				input.target_velocity = { signedMaxVelocity };
 				input.target_acceleration = { 0 };
 				input.max_velocity = { para.CurrentVelocity };
 
@@ -125,7 +130,7 @@ namespace ruckig {
 					trajectory.at_time(brakeTime1, newPosition);
 
 					input.current_position = { newPosition[0] };
-					input.current_velocity = { para.MaxVelocity };
+					input.current_velocity = { signedMaxVelocity };
 					input.current_acceleration = { 0 };
 					input.target_velocity = { 0 };
 					input.target_acceleration = { 0 };
@@ -170,7 +175,7 @@ namespace ruckig {
 				input.control_interface = ControlInterface::Position;
 
 				if (use2PhaseChange) {
-					input.target_velocity = { para.MaxVelocity };
+					input.target_velocity = { signedMaxVelocity };
 					input.max_velocity = { para.CurrentVelocity };
 					input.control_interface = ControlInterface::Velocity;
 				}
@@ -240,12 +245,17 @@ namespace ruckig {
 			input.control_interface = ControlInterface::Velocity;
 			input.synchronization = Synchronization::None;
 
+			auto signedMaxVelocity = para.CurrentVelocity > 0 ? para.MaxVelocity : -para.MaxVelocity;
 			// workaround for hard kinematic constraints (ruckig tries getting into the constraints without being time optimale)
-			if (!useVelocityInterface && para.CurrentVelocity > 0 && para.CurrentVelocity > para.MaxVelocity || para.CurrentVelocity < 0 && para.CurrentVelocity < -para.MaxVelocity) {
+			if (!useVelocityInterface &&
+				(para.CurrentVelocity > 0 && para.TargetPosition > para.CurrentPosition && para.CurrentVelocity > para.MaxVelocity
+					|| para.CurrentVelocity < 0 && para.TargetPosition < para.CurrentPosition && para.CurrentVelocity < -para.MaxVelocity)) {
+
 				input.current_position = { para.CurrentPosition };
 				input.current_velocity = { para.CurrentVelocity };
 				input.current_acceleration = { para.CurrentAcceleration };
-				input.target_velocity = { para.MaxVelocity };
+
+				input.target_velocity = { signedMaxVelocity };
 				input.target_acceleration = { 0 };
 				input.max_velocity = { para.CurrentVelocity };
 
@@ -260,7 +270,7 @@ namespace ruckig {
 					trajectory.at_time(brakeTime1, newPosition);
 
 					input.current_position = { newPosition[0] };
-					input.current_velocity = { para.MaxVelocity };
+					input.current_velocity = { signedMaxVelocity };
 					input.current_acceleration = { 0 };
 					input.target_velocity = { 0 };
 					input.target_acceleration = { 0 };
@@ -304,7 +314,7 @@ namespace ruckig {
 			input.control_interface = ControlInterface::Position;
 
 			if (use2PhaseChange) {
-				input.target_velocity = { para.MaxVelocity };
+				input.target_velocity = { signedMaxVelocity };
 				input.max_velocity = { para.CurrentVelocity };
 				input.control_interface = ControlInterface::Velocity;
 			}
