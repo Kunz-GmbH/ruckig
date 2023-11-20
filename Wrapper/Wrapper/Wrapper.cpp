@@ -400,7 +400,7 @@ namespace ruckig {
 
 				if (para.TargetVelocity > 0) {
 					if (extrema[0].max > para.TargetPosition)
-						targetVelocityReachable = false;					
+						targetVelocityReachable = false;
 				}
 				else if (para.TargetVelocity < 0) {
 					if (extrema[0].min < para.TargetPosition)
