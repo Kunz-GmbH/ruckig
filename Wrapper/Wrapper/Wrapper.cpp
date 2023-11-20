@@ -84,6 +84,130 @@ namespace ruckig {
 			return state;
 		}
 
+		// 1 axis for cps
+		ValueTuple< List<CurrentState>^, ResultValues> RuckigWrapper::GetPositions(double td, Parameter para, int stepLimit, bool useVelocityInterface) {
+			ResultValues resultValues{ };
+			List<CurrentState>^ results = gcnew List<CurrentState>(stepLimit);
+
+			Ruckig<1> otg{ td };
+			InputParameter<1> input;
+			OutputParameter<1> output;
+
+			double brakeTime1;
+
+			auto use2PhaseChange = false;
+
+			input.max_acceleration = { para.MaxAcceleration };
+			input.max_jerk = { para.MaxJerk };
+			// TODO ? input.duration_discretization = DurationDiscretization::Discrete;
+			input.control_interface = ControlInterface::Velocity;
+			input.synchronization = Synchronization::None;
+
+			auto signedMaxVelocity = para.CurrentVelocity > 0 ? para.MaxVelocity : -para.MaxVelocity;
+			// 
+
+			if (!useVelocityInterface &&
+				(para.CurrentVelocity > 0 && para.TargetPosition > para.CurrentPosition && para.CurrentVelocity > para.MaxVelocity
+					|| para.CurrentVelocity < 0 && para.TargetPosition < para.CurrentPosition && para.CurrentVelocity < -para.MaxVelocity))
+			{
+
+				auto [use2PhaseChangeTmp, brakeTime1Tmp, res1, res2] = WorkaroundCurrentVelocityToHigh(input, para, signedMaxVelocity, otg);
+				brakeTime1 = brakeTime1Tmp;
+				use2PhaseChange = use2PhaseChangeTmp;
+
+				if (res1 < 0 || res2 < 0)
+				{
+					resultValues.CalculationResult = res1 < 0 ? res1 : res2;
+					ValueTuple< List<CurrentState>^, ResultValues> resultTuple{ results, resultValues };
+					return  resultTuple;
+				}
+			}
+
+			auto targetVelocityReachable = true;
+			if (!useVelocityInterface && para.TargetVelocity != 0) {
+				auto [resTargetVelocity, targetVelocityReachableTmp] = WorkaroundTargetVelocity(input, para, otg);
+				if (resTargetVelocity < 0) {
+					resultValues.CalculationResult = resTargetVelocity;
+					ValueTuple< List<CurrentState>^, ResultValues> resultTuple{ results, resultValues };
+					return  resultTuple;
+				}
+				targetVelocityReachable = targetVelocityReachableTmp;
+			}
+
+
+			auto brakingIsPossible = true;
+			if (!useVelocityInterface) {
+				auto [resBrakeTrajectory, brakingIsPossibleTmp] = CheckBrakeTrajectory(input, para, otg);
+				if (resBrakeTrajectory < 0) {
+					resultValues.CalculationResult = resBrakeTrajectory;
+					ValueTuple< List<CurrentState>^, ResultValues> resultTuple{ results, resultValues };
+					return  resultTuple;
+				}
+				brakingIsPossible = brakingIsPossibleTmp;
+			}
+
+			input.current_position = { para.CurrentPosition };
+			input.current_velocity = { para.CurrentVelocity };
+			input.current_acceleration = { para.CurrentAcceleration };
+
+			input.target_position = { para.TargetPosition };
+			input.target_velocity = { para.TargetVelocity };
+			input.target_acceleration = { para.TargetAcceleration };
+
+			input.max_velocity = { para.MaxVelocity };
+
+			input.control_interface = ControlInterface::Position;
+
+			if (use2PhaseChange) {
+				input.target_velocity = { signedMaxVelocity };
+				input.max_velocity = { para.CurrentVelocity };
+				input.control_interface = ControlInterface::Velocity;
+			}
+
+			if (!targetVelocityReachable)
+				input.control_interface = ControlInterface::Velocity;
+
+			if (useVelocityInterface) {
+				input.control_interface = ControlInterface::Velocity;
+				use2PhaseChange = false;
+			}
+
+			auto needToSwitchBack = use2PhaseChange;
+			auto oneMoreRound = false;
+			auto counter = 0;
+			while ((otg.update(input, output) == Result::Working || needToSwitchBack || para.TargetVelocity != 0 || !targetVelocityReachable) && (stepLimit < 0 || counter < stepLimit - 1)) {
+
+				CurrentState lastState{ output.new_position[0], output.new_velocity[0], output.new_acceleration[0] };
+				results->Add(lastState);
+
+				if (!useVelocityInterface && needToSwitchBack && brakeTime1 <= output.time) {
+					input.control_interface = ControlInterface::Position;
+					input.target_velocity = { para.TargetVelocity };
+					input.max_velocity = { para.MaxVelocity };
+					needToSwitchBack = false;
+					oneMoreRound = true;
+				}
+
+				if (para.TargetVelocity > 0 && (output.new_position[0] >= para.TargetPosition || !targetVelocityReachable)) {
+					input.control_interface = ControlInterface::Velocity;
+					input.target_position = { para.TargetPosition + 1000 };
+				}
+				if (para.TargetVelocity < 0 && (output.new_position[0] <= para.TargetPosition || !targetVelocityReachable)) {
+					input.control_interface = ControlInterface::Velocity;
+					input.target_position = { para.TargetPosition - 1000 };
+				}
+
+				++counter;
+				output.pass_to_input(input);
+			}
+
+			resultValues.CalculationResult = otg.update(input, output);
+			CurrentState lastState{ output.new_position[0], output.new_velocity[0], output.new_acceleration[0] };
+			results->Add(lastState);
+			ValueTuple< List<CurrentState>^, ResultValues> resultTuple{ results, resultValues };
+			return  resultTuple;
+		}
+
 		ValueTuple< array<List<CurrentState>^>^, ResultValues> RuckigWrapper::GetPositionsIncludingBrakePosition(double td, Parameter para, int stepLimit, int brakeTrajectoriesLimit, bool useVelocityInterface) {
 
 			ResultValues resultValues{ };
@@ -93,8 +217,6 @@ namespace ruckig {
 
 			InputParameter<1> input;
 			OutputParameter<1> output;
-			Trajectory<1> phase1Trajectory;
-			Trajectory<1> trajectory;
 			double brakeTime1;
 
 			auto use2PhaseChange = false;
@@ -106,58 +228,42 @@ namespace ruckig {
 			input.synchronization = Synchronization::None;
 			auto signedMaxVelocity = para.CurrentVelocity > 0 ? para.MaxVelocity : -para.MaxVelocity;
 
-			// workaround for hard kinematic constraints (ruckig tries getting into the constraints without being time optimale)
 			if (!useVelocityInterface &&
 				(para.CurrentVelocity > 0 && para.TargetPosition > para.CurrentPosition && para.CurrentVelocity > para.MaxVelocity
 					|| para.CurrentVelocity < 0 && para.TargetPosition < para.CurrentPosition && para.CurrentVelocity < -para.MaxVelocity)) {
 
-				input.current_position = { para.CurrentPosition };
-				input.current_velocity = { para.CurrentVelocity };
-				input.current_acceleration = { para.CurrentAcceleration };
+				auto [use2PhaseChangeTmp, brakeTime1Tmp, res1, res2] = WorkaroundCurrentVelocityToHigh(input, para, signedMaxVelocity, otg);
+				brakeTime1 = brakeTime1Tmp;
+				use2PhaseChange = use2PhaseChangeTmp;
 
-				input.target_velocity = { signedMaxVelocity };
-				input.target_acceleration = { 0 };
-				input.max_velocity = { para.CurrentVelocity };
-
-				auto res1 = otg.calculate(input, phase1Trajectory);
-				Result res2;
-				double brakeTime2;
-
-				brakeTime1 = phase1Trajectory.get_duration();
-
-				if (res1 >= 0) {
-					StandardVector<double, 1> newPosition;
-					trajectory.at_time(brakeTime1, newPosition);
-
-					input.current_position = { newPosition[0] };
-					input.current_velocity = { signedMaxVelocity };
-					input.current_acceleration = { 0 };
-					input.target_velocity = { 0 };
-					input.target_acceleration = { 0 };
-
-					input.max_velocity = { para.CurrentVelocity };
-
-					res2 = otg.calculate(input, trajectory);
-					brakeTime2 = trajectory.get_duration();
-				}
-
-				if (res1 >= 0 && res2 >= 0) {
-					StandardVector<double, 1> endPosition;
-					trajectory.at_time(brakeTime2, endPosition);
-
-					// check for overshoot
-					if (para.CurrentPosition > para.TargetPosition && endPosition[0] < para.TargetPosition ||
-						para.CurrentPosition < para.TargetPosition && endPosition[0] > para.TargetPosition) {
-						// with 2 phase we would overshoot
-					}
-					else
-						use2PhaseChange = true;
-				}
-				else {
-					resultValues.CalculationResult = res1 >= 0 ? res1 : res2;
+				if (res1 < 0 || res2 < 0)
+				{
+					resultValues.CalculationResult = res1 < 0 ? res1 : res2;
 					ValueTuple< array<List<CurrentState>^>^, ResultValues> resultTuple{ results, resultValues };
 					return  resultTuple;
 				}
+			}
+
+			auto targetVelocityReachable = true;
+			if (!useVelocityInterface && para.TargetVelocity != 0) {
+				auto [resTargetVelocity, targetVelocityReachableTmp] = WorkaroundTargetVelocity(input, para, otg);
+				if (resTargetVelocity < 0) {
+					resultValues.CalculationResult = resTargetVelocity;
+					ValueTuple< array<List<CurrentState>^>^, ResultValues> resultTuple{ results, resultValues };
+					return  resultTuple;
+				}
+				targetVelocityReachable = targetVelocityReachableTmp;
+			}
+
+			auto brakingIsPossible = true;
+			if (!useVelocityInterface) {
+				auto [resBrakeTrajectory, brakingIsPossibleTmp] = CheckBrakeTrajectory(input, para, otg);
+				if (resBrakeTrajectory < 0) {
+					resultValues.CalculationResult = resBrakeTrajectory;
+					ValueTuple< array<List<CurrentState>^>^, ResultValues> resultTuple{ results, resultValues };
+					return  resultTuple;
+				}
+				brakingIsPossible = brakingIsPossibleTmp;
 			}
 
 			for (auto i = 0; i < brakeTrajectoriesLimit + 1; ++i) {
@@ -180,6 +286,9 @@ namespace ruckig {
 					input.control_interface = ControlInterface::Velocity;
 				}
 
+				if (!targetVelocityReachable)
+					input.control_interface = ControlInterface::Velocity;
+
 				if (useVelocityInterface || i != 0) {
 					input.control_interface = ControlInterface::Velocity;
 					use2PhaseChange = false;
@@ -188,7 +297,7 @@ namespace ruckig {
 				auto counter = 1;
 				auto braking = false;
 				auto needToSwitchBack = use2PhaseChange;
-				while ((otg.update(input, output) == Result::Working || needToSwitchBack) && (stepLimit < 0 || counter < stepLimit + i)) {
+				while ((otg.update(input, output) == Result::Working || needToSwitchBack || (i == 0 && para.TargetVelocity != 0) || (i == 0 && !targetVelocityReachable)) && (stepLimit < 0 || counter < stepLimit + i)) {
 
 					if (counter > i) {
 						CurrentState lastState{ output.new_position[0], output.new_velocity[0], output.new_acceleration[0] };
@@ -209,6 +318,15 @@ namespace ruckig {
 						input.target_acceleration = { 0 };
 					}
 
+					if (para.TargetVelocity > 0 && (output.new_position[0] >= para.TargetPosition || !targetVelocityReachable)) {
+						input.control_interface = ControlInterface::Velocity;
+						input.target_position = { para.TargetPosition + 1000 };
+					}
+					if (para.TargetVelocity < 0 && (output.new_position[0] <= para.TargetPosition || !targetVelocityReachable)) {
+						input.control_interface = ControlInterface::Velocity;
+						input.target_position = { para.TargetPosition - 1000 };
+					}
+
 					++counter;
 					output.pass_to_input(input);
 				}
@@ -224,131 +342,129 @@ namespace ruckig {
 			return  resultTuple;
 		}
 
-		// 1 axis for cps
-		ValueTuple< List<CurrentState>^, ResultValues> RuckigWrapper::GetPositions(double td, Parameter para, int stepLimit, bool useVelocityInterface) {
-			ResultValues resultValues{ };
-			List<CurrentState>^ results = gcnew List<CurrentState>(stepLimit);
+		ValueTuple<int, bool> RuckigWrapper::CheckBrakeTrajectory(ruckig::InputParameter<1Ui64>& input, ruckig::Wrapper::Parameter& para, ruckig::Ruckig<1Ui64>& otg)
+		{
+			Trajectory<1> brakeTrajectory;
 
-			Ruckig<1> otg{ td };
+			auto brakingIsPossible = true;
+			input.current_position = { para.CurrentPosition };
+			input.current_velocity = { para.CurrentVelocity };
+			input.current_acceleration = { para.CurrentAcceleration };
 
-			InputParameter<1> input;
-			OutputParameter<1> output;
-			Trajectory<1> phase1Trajectory;
-			Trajectory<1> trajectory;
-			double brakeTime1;
+			input.target_velocity = { 0 };
+			input.target_acceleration = { 0 };
+			input.max_velocity = { para.MaxVelocity };
 
-			auto use2PhaseChange = false;
-
-			input.max_acceleration = { para.MaxAcceleration };
-			input.max_jerk = { para.MaxJerk };
-			// TODO ? input.duration_discretization = DurationDiscretization::Discrete;
 			input.control_interface = ControlInterface::Velocity;
-			input.synchronization = Synchronization::None;
 
-			auto signedMaxVelocity = para.CurrentVelocity > 0 ? para.MaxVelocity : -para.MaxVelocity;
-			// workaround for hard kinematic constraints (ruckig tries getting into the constraints without being time optimale)
-			if (!useVelocityInterface &&
-				(para.CurrentVelocity > 0 && para.TargetPosition > para.CurrentPosition && para.CurrentVelocity > para.MaxVelocity
-					|| para.CurrentVelocity < 0 && para.TargetPosition < para.CurrentPosition && para.CurrentVelocity < -para.MaxVelocity)) {
+			auto res = otg.calculate(input, brakeTrajectory);
 
-				input.current_position = { para.CurrentPosition };
-				input.current_velocity = { para.CurrentVelocity };
-				input.current_acceleration = { para.CurrentAcceleration };
+			if (res >= 0) {
+				auto extrema = brakeTrajectory.get_position_extrema();
 
-				input.target_velocity = { signedMaxVelocity };
-				input.target_acceleration = { 0 };
-				input.max_velocity = { para.CurrentVelocity };
-
-				auto res1 = otg.calculate(input, phase1Trajectory);
-				Result res2;
-				double brakeTime2;
-
-				brakeTime1 = phase1Trajectory.get_duration();
-
-				if (res1 >= 0) {
-					StandardVector<double, 1> newPosition;
-					trajectory.at_time(brakeTime1, newPosition);
-
-					input.current_position = { newPosition[0] };
-					input.current_velocity = { signedMaxVelocity };
-					input.current_acceleration = { 0 };
-					input.target_velocity = { 0 };
-					input.target_acceleration = { 0 };
-
-					input.max_velocity = { para.CurrentVelocity };
-
-					res2 = otg.calculate(input, trajectory);
-					brakeTime2 = trajectory.get_duration();
+				if (para.CurrentPosition < para.TargetPosition) {
+					if (para.TargetPosition < extrema[0].max)
+						brakingIsPossible = false;
+				}
+				else if (para.CurrentPosition > para.TargetPosition) {
+					if (extrema[0].max < para.TargetPosition)
+						brakingIsPossible = false;
 				}
 
-				if (res1 >= 0 && res2 >= 0) {
-					StandardVector<double, 1> endPosition;
-					trajectory.at_time(brakeTime2, endPosition);
+				return ValueTuple<int, bool> {res, brakingIsPossible};
+			}
+			return ValueTuple<int, bool> {res, false};
+		}
 
-					// check for overshoot
-					if (para.CurrentPosition > para.TargetPosition && endPosition[0] < para.TargetPosition ||
-						para.CurrentPosition < para.TargetPosition && endPosition[0] > para.TargetPosition) {
-						// with 2 phase we would overshoot
-					}
-					else
-						use2PhaseChange = true;
+		ValueTuple<int, bool> RuckigWrapper::WorkaroundTargetVelocity(ruckig::InputParameter<1Ui64>& input, ruckig::Wrapper::Parameter& para, ruckig::Ruckig<1Ui64>& otg)
+		{
+			// 2nd workaround for hard kinematic limits
+			// check if transition from current velocity to target velocity can be done in time -> otherwise use velocity interface
+			Trajectory<1> targetSpeedCheckTrajectory;
+
+			auto targetVelocityReachable = true;
+			input.current_position = { para.CurrentPosition };
+			input.current_velocity = { para.CurrentVelocity };
+			input.current_acceleration = { para.CurrentAcceleration };
+
+			input.target_velocity = { para.TargetVelocity };
+			input.target_acceleration = { 0 };
+			input.max_velocity = { para.MaxVelocity };
+
+			input.control_interface = ControlInterface::Velocity;
+
+			auto res = otg.calculate(input, targetSpeedCheckTrajectory);
+			if (res >= 0) {
+
+				auto extrema = targetSpeedCheckTrajectory.get_position_extrema();
+
+				if (para.TargetVelocity > 0) {
+					if (extrema[0].max > para.TargetPosition)
+						targetVelocityReachable = false;					
 				}
-				else {
-					resultValues.CalculationResult = res1 >= 0 ? res1 : res2;
-					ValueTuple< List<CurrentState>^, ResultValues> resultTuple{ results, resultValues };
-					return  resultTuple;
+				else if (para.TargetVelocity < 0) {
+					if (extrema[0].min < para.TargetPosition)
+						targetVelocityReachable = false;
 				}
+
+				return ValueTuple<int, bool> {res, targetVelocityReachable};
 			}
 
+			return ValueTuple<int, bool> {res, false};
+		}
+
+
+		// workaround for hard kinematic constraints (ruckig tries getting into the constraints without being time optimale)
+		ValueTuple<bool, double, int, int> RuckigWrapper::WorkaroundCurrentVelocityToHigh(ruckig::InputParameter<1Ui64>& input, ruckig::Wrapper::Parameter& para, double signedMaxVelocity, ruckig::Ruckig<1Ui64>& otg)
+		{
+			Trajectory<1> phase1Trajectory;
+			Trajectory<1> trajectory;
 
 			input.current_position = { para.CurrentPosition };
 			input.current_velocity = { para.CurrentVelocity };
 			input.current_acceleration = { para.CurrentAcceleration };
 
-			input.target_position = { para.TargetPosition };
-			input.target_velocity = { para.TargetVelocity };
-			input.target_acceleration = { para.TargetAcceleration };
+			input.target_velocity = { signedMaxVelocity };
+			input.target_acceleration = { 0 };
+			input.max_velocity = { para.CurrentVelocity };
 
-			input.max_velocity = { para.MaxVelocity };
+			auto res1 = otg.calculate(input, phase1Trajectory);
+			Result res2{};
+			auto use2PhaseChange = false;
+			double brakeTime2;
 
-			input.control_interface = ControlInterface::Position;
+			auto brakeTime1 = phase1Trajectory.get_duration();
 
-			if (use2PhaseChange) {
-				input.target_velocity = { signedMaxVelocity };
+			if (res1 >= 0) {
+				StandardVector<double, 1> newPosition;
+				trajectory.at_time(brakeTime1, newPosition);
+
+				input.current_position = { newPosition[0] };
+				input.current_velocity = { signedMaxVelocity };
+				input.current_acceleration = { 0 };
+				input.target_velocity = { 0 };
+				input.target_acceleration = { 0 };
+
 				input.max_velocity = { para.CurrentVelocity };
-				input.control_interface = ControlInterface::Velocity;
+
+				res2 = otg.calculate(input, trajectory);
+				brakeTime2 = trajectory.get_duration();
 			}
 
-			if (useVelocityInterface) {
-				input.control_interface = ControlInterface::Velocity;
-				use2PhaseChange = false;
-			}
+			if (res1 >= 0 && res2 >= 0) {
+				StandardVector<double, 1> endPosition;
+				trajectory.at_time(brakeTime2, endPosition);
 
-			auto needToSwitchBack = use2PhaseChange;
-			auto oneMoreRound = false;
-			auto counter = 0;
-			while ((otg.update(input, output) == Result::Working || needToSwitchBack) && (stepLimit < 0 || counter < stepLimit - 1)) {
-
-				CurrentState lastState{ output.new_position[0], output.new_velocity[0], output.new_acceleration[0] };
-				results->Add(lastState);
-
-				if (!useVelocityInterface && needToSwitchBack && brakeTime1 <= output.time) {
-					input.control_interface = ControlInterface::Position;
-					input.target_velocity = { para.TargetVelocity };
-					input.max_velocity = { para.MaxVelocity };
-					needToSwitchBack = false;
-					oneMoreRound = true;
+				// check for overshoot
+				if (para.CurrentPosition > para.TargetPosition && endPosition[0] < para.TargetPosition ||
+					para.CurrentPosition < para.TargetPosition && endPosition[0] > para.TargetPosition) {
+					// with 2 phase we would overshoot
 				}
-
-				++counter;
-				output.pass_to_input(input);
+				else
+					use2PhaseChange = true;
 			}
 
-			resultValues.CalculationResult = otg.update(input, output);
-			CurrentState lastState{ output.new_position[0], output.new_velocity[0], output.new_acceleration[0] };
-			results->Add(lastState);
-			ValueTuple< List<CurrentState>^, ResultValues> resultTuple{ results, resultValues };
-			return  resultTuple;
+			return ValueTuple<bool, double, int, int>{ use2PhaseChange, brakeTime1, res1, res2 };
 		}
 
 		// PCP Trajectory generator

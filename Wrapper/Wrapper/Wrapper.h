@@ -83,6 +83,9 @@ namespace ruckig {
 			Ruckig<1>* _otg;
 			InputParameter<1>* _input;
 			OutputParameter<1>* _output;
+			static ValueTuple<bool, double, int, int> WorkaroundCurrentVelocityToHigh(ruckig::InputParameter<1Ui64>& input, ruckig::Wrapper::Parameter& para, double signedMaxVelocity, ruckig::Ruckig<1Ui64>& otg);
+			static ValueTuple<int, bool> WorkaroundTargetVelocity(ruckig::InputParameter<1Ui64>& input, ruckig::Wrapper::Parameter& para, ruckig::Ruckig<1Ui64>& otg);
+			static ValueTuple<int, bool> CheckBrakeTrajectory(ruckig::InputParameter<1Ui64>& input, ruckig::Wrapper::Parameter& para, ruckig::Ruckig<1Ui64>& otg);
 		};
 	}
 }
