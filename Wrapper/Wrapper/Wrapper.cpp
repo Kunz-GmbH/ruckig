@@ -360,14 +360,17 @@ namespace ruckig {
 			auto res = otg.calculate(input, brakeTrajectory);
 
 			if (res >= 0) {
-				auto extrema = brakeTrajectory.get_position_extrema();
+				// Dont use extrema (min value is incorrect: eg -6E-66)
+				ruckig::StandardVector<double, 1> pos;
+				auto t = brakeTrajectory.get_duration();
+				brakeTrajectory.at_time(t, pos);
 
 				if (para.CurrentPosition < para.TargetPosition) {
-					if (para.TargetPosition < extrema[0].max)
+					if (para.TargetPosition < pos[0])
 						brakingIsPossible = false;
 				}
 				else if (para.CurrentPosition > para.TargetPosition) {
-					if (extrema[0].max < para.TargetPosition)
+					if (pos[0] < para.TargetPosition)
 						brakingIsPossible = false;
 				}
 
@@ -395,15 +398,16 @@ namespace ruckig {
 
 			auto res = otg.calculate(input, targetSpeedCheckTrajectory);
 			if (res >= 0) {
-
-				auto extrema = targetSpeedCheckTrajectory.get_position_extrema();
+				ruckig::StandardVector<double,1> pos;
+				auto t = targetSpeedCheckTrajectory.get_duration();
+				targetSpeedCheckTrajectory.at_time(t, pos);
 
 				if (para.TargetVelocity > 0) {
-					if (extrema[0].max > para.TargetPosition)
+					if (pos[0] > para.TargetPosition)
 						targetVelocityReachable = false;
 				}
 				else if (para.TargetVelocity < 0) {
-					if (extrema[0].min < para.TargetPosition)
+					if (pos[0] < para.TargetPosition)
 						targetVelocityReachable = false;
 				}
 
