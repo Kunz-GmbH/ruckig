@@ -12,6 +12,7 @@ namespace ruckig {
 			double CalculationTime;
 			double Duration;
 			int CalculationResult;
+			int Count;
 		};
 
 		public value struct Parameter {
@@ -70,19 +71,25 @@ namespace ruckig {
 		public ref class RuckigWrapper
 		{
 		public:
-			RuckigWrapper(double td, Parameter para, bool useVelocityInterface);
-			ValueTuple<CurrentState, ResultValues> GetNextState(Parameter para, bool useVelocityInterface);
-			static ValueTuple< List<JerkStates>^, ResultValues>  GetValues(double td, Parameter parameter);
+			// CPS
+			RuckigWrapper(double td);
+			ResultValues GetPositions(double td, Parameter para, int stepLimit, bool useVelocityInterface, array<CurrentState>^ currentStates);
+			ResultValues GetPositionsIncludingBrakePosition(double td, Parameter para, int stepLimit, int brakeTrajectoriesLimit, bool useVelocityInterface, array<array<CurrentState>^>^ currentStates, array<int>^ lengths);
 
-			static StepState GetStep(Parameter parameter, double td);
 			static ValueTuple< List<CurrentState>^, ResultValues> GetPositions(double td, Parameter para, int stepLimit, bool useVelocityInterface);
 			static ValueTuple< array<List<CurrentState>^>^, ResultValues> GetPositionsIncludingBrakePosition(double td, Parameter para, int stepLimit, int brakeTrajectoriesLimit, bool useVelocityInterface);
+
+			// PCP
+			static ValueTuple< List<JerkStates>^, ResultValues>  GetValues(double td, Parameter parameter);
+
+			// DT
+			static StepState GetStep(Parameter parameter, double td);
+
 
 		private:
 			Trajectory<1>* _trajectory;
 			Ruckig<1>* _otg;
-			InputParameter<1>* _input;
-			OutputParameter<1>* _output;
+			
 			static ValueTuple<bool, double, int, int> WorkaroundCurrentVelocityToHigh(ruckig::InputParameter<1Ui64>& input, ruckig::Wrapper::Parameter& para, double signedMaxVelocity, ruckig::Ruckig<1Ui64>& otg);
 			static ValueTuple<int, bool> WorkaroundTargetVelocity(ruckig::InputParameter<1Ui64>& input, ruckig::Wrapper::Parameter& para, ruckig::Ruckig<1Ui64>& otg);
 			static ValueTuple<int, bool> CheckBrakeTrajectory(ruckig::InputParameter<1Ui64>& input, ruckig::Wrapper::Parameter& para, ruckig::Ruckig<1Ui64>& otg);
