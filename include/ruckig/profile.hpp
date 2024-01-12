@@ -16,7 +16,7 @@
 namespace ruckig {
 
 //! Information about the position extrema
-struct PositionExtrema {
+struct Bound {
     //! The extreme position
     double min, max;
 
@@ -401,7 +401,7 @@ public:
 
 
     // Secondary features
-    static void check_position_extremum(double t_ext, double t_sum, double t, double p, double v, double a, double j, PositionExtrema& ext) {
+    static void check_position_extremum(double t_ext, double t_sum, double t, double p, double v, double a, double j, Bound& ext) {
         if (0 < t_ext && t_ext < t) {
             double p_ext, a_ext;
             std::tie(p_ext, std::ignore, a_ext) = integrate(t_ext, p, v, a, j);
@@ -415,7 +415,7 @@ public:
         }
     }
 
-    static void check_step_for_position_extremum(double t_sum, double t, double p, double v, double a, double j, PositionExtrema& ext) {
+    static void check_step_for_position_extremum(double t_sum, double t, double p, double v, double a, double j, Bound& ext) {
         if (p < ext.min) {
             ext.min = p;
             ext.t_min = t_sum;
@@ -438,8 +438,8 @@ public:
         }
     }
 
-    PositionExtrema get_position_extrema() const {
-        PositionExtrema extrema;
+    Bound get_position_extrema() const {
+        Bound extrema;
         extrema.min = std::numeric_limits<double>::infinity();
         extrema.max = -std::numeric_limits<double>::infinity();
 
@@ -473,32 +473,31 @@ public:
         return extrema;
     }
 
-    bool get_first_state_at_position(double pt, double& time, double& vt, double& at, double offset = 0.0) const {
-        for (size_t i = 0; i < 7; ++i) {
-            if (std::abs(p[i] - pt) < std::numeric_limits<double>::epsilon()) {
-                time = offset + ((i > 0) ? t_sum[i-1] : 0.0);
-                vt = v[i];
-                at = a[i];
-                return true;
-            }
+    bool get_first_state_at_position(double pt, double& time, double time_after=0.0) const {
+        double t_cum = 0.0;
 
+        for (size_t i = 0; i < 7; ++i) {
             if (t[i] == 0.0) {
                 continue;
             }
 
-            for (const double _t: roots::solve_cubic(j[i]/6, a[i]/2, v[i], p[i]-pt)) {
-                if (0 < _t && _t <= t[i]) {
-                    time = offset + _t + ((i > 0) ? t_sum[i-1] : 0.0);
-                    std::tie(std::ignore, vt, at) = integrate(_t, p[i], v[i], a[i], j[i]);
+            if (std::abs(p[i] - pt) < DBL_EPSILON && t_cum >= time_after) {
+                time = t_cum;
+                return true;
+            }
+
+            for (const double _t: roots::solve_cubic(j[i]/6, a[i]/2, v[i], p[i] - pt)) {
+                if (0 < _t && time_after - t_cum <= _t && _t <= t[i]) {
+                    time = _t + t_cum;
                     return true;
                 }
             }
+
+            t_cum += t[i];
         }
 
-        if (std::abs(pf - pt) < 1e-9) {
-            time = offset + t_sum.back();
-            vt = vf;
-            at = af;
+        if ((t[6] > 0.0 || t_sum.back() == 0.0) && std::abs(pf - pt) < 1e-9 && t_sum.back() >= time_after) {
+            time = t_sum.back();
             return true;
         }
 

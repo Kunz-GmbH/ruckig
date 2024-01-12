@@ -37,7 +37,7 @@ TargetState<1> model_sinus(double t, double ramp_vel=0.4) {
 
 int main() {
     // Create instances: the Trackig OTG as well as input and output parameters
-    Trackig<1> otg {0.01};  // control cycle
+    Trackig<1> otg(0.01);  // control cycle
     InputParameter<1> input;
     OutputParameter<1> output;
 
@@ -56,12 +56,12 @@ int main() {
 
     otg.reactiveness = 1.0; // default value, should be in [0, 1]
 
-    // Generate the trajectory within the control loop
+    // Generate the trajectory following the target state
     std::cout << "target | follow" << std::endl;
     for (size_t t = 0; t < 500; t += 1) {
-        auto target_state = model_ramp(otg.delta_time * t);
-        auto res = otg.update(target_state, input, output);
-        std::cout << target_state.position[0] << " " << output.new_position[0] << std::endl;
+        const TargetState<1> target_state = model_ramp(otg.delta_time * t);
+        const Result res = otg.update(target_state, input, output);
+        std::cout << join(target_state.position) << " " << join(output.new_position) << std::endl;
 
         output.pass_to_input(input);
     }

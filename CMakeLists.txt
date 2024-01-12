@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.15)
 
-set(RUCKIG_VERSION 0.11.0)
+set(RUCKIG_VERSION 0.12.2)
 project(ruckig VERSION ${RUCKIG_VERSION} LANGUAGES CXX)
 
 
@@ -40,7 +40,6 @@ target_include_directories(ruckig PUBLIC
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 target_link_libraries(ruckig PUBLIC)
-
 
 if(MSVC)
   target_compile_definitions(ruckig PUBLIC _USE_MATH_DEFINES)
@@ -91,14 +90,13 @@ if(BUILD_PYTHON_MODULE)
 
   set_target_properties(python_ruckig PROPERTIES OUTPUT_NAME ruckig)
   set_target_properties(python_ruckig PROPERTIES ARCHIVE_OUTPUT_NAME python_ruckig)
+
+  install(TARGETS python_ruckig LIBRARY DESTINATION .)
 endif()
 
 
 # Add support for installation
 include(CMakePackageConfigHelpers)
-
-# Install headers
-install(DIRECTORY include/ruckig DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # Install library
 install(TARGETS ruckig
@@ -106,6 +104,7 @@ install(TARGETS ruckig
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
 # Install CMake config files
@@ -140,26 +139,27 @@ install(FILES
 if(BUILD_TESTS)
   enable_testing()
 
-  add_executable(test-target test/test_target.cpp test/test_target_known.cpp)
-
-  target_link_libraries(test-target PRIVATE ruckig)
-  target_include_directories(test-target PRIVATE third_party)
+  add_library(test-dependencies INTERFACE)
+  target_link_libraries(test-dependencies INTERFACE ruckig)
+  target_include_directories(test-dependencies INTERFACE third_party)
   if(MSVC)
-    target_compile_options(test-target PRIVATE /W4)
+    target_compile_options(test-dependencies INTERFACE /W4)
   else()
-    target_compile_options(test-target PRIVATE -Wall -Wextra)
-    find_program(MEMORYCHECK_COMMAND valgrind)
-    set(MEMORYCHECK_COMMAND_OPTIONS
-       "--tool=memcheck \
-       --leak-check=full \
-       --trace-children=yes \
-       --track-origins=yes \
-       --keep-debuginfo=yes \
-       --error-exitcode=100")
-    include(CTest)
+    target_compile_options(test-dependencies INTERFACE -Wall -Wextra)
   endif()
 
+  add_executable(test-target
+    test/test_target.cpp
+  )
+  target_link_libraries(test-target PRIVATE test-dependencies)
   add_test(NAME test-target COMMAND test-target)
+  if(NOT MSVC)
+    include(CTest)
+    find_program(MEMORYCHECK_COMMAND valgrind)
+    set(MEMORYCHECK_COMMAND_OPTIONS "--tool=memcheck --leak-check=full --trace-children=yes \
+      --track-origins=yes  --keep-debuginfo=yes --error-exitcode=100")
+  endif()
+
 endif()
 
 

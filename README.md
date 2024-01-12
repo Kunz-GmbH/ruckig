@@ -14,7 +14,7 @@
   <a href="https://github.com/pantor/ruckig/releases">
     <img src="https://img.shields.io/github/v/release/pantor/ruckig.svg?include_prereleases&sort=semver" alt="Releases">
   </a>
-  <a href="https://github.com/pantor/ruckig/blob/master/LICENSE">
+  <a href="https://github.com/pantor/ruckig/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT">
   </a>
 </p>
@@ -55,7 +55,7 @@ When using CMake, the Python module can be built using the `BUILD_PYTHON_MODULE`
 
 Furthermore, we will explain the basics to get started with online generated trajectories within your application. There is also a [collection of examples](https://docs.ruckig.com/pages.html) that guide you through the most important features of Ruckig. A time-optimal trajectory for a single degree of freedom is shown in the figure below. We also added plots of the resulting trajectories for all examples. Let's get started!
 
-![Trajectory Profile](https://github.com/pantor/ruckig/raw/master/doc/example_profile.png?raw=true)
+![Trajectory Profile](https://github.com/pantor/ruckig/raw/main/doc/example_profile.png?raw=true)
 
 
 ### Waypoint-based Trajectory Generation
@@ -278,7 +278,7 @@ for (double t = 0; t < 10.0; t += otg.delta_time) {
   output.pass_to_input(input);
 }
 ```
-Please find a complete example [here](https://github.com/pantor/ruckig/blob/master/examples/13_tracking.cpp). This functionality can also be used in an offline manner, e.g. when the entire signal is known beforehand. Here, we call the
+Please find a complete example [here](https://github.com/pantor/ruckig/blob/main/examples/13_tracking.cpp). This functionality can also be used in an offline manner, e.g. when the entire signal is known beforehand. Here, we call the
 ```.cpp
 smooth_trajectory = otg.calculate_trajectory(target_states, input);
 ```
@@ -324,23 +324,33 @@ struct MinimalVector {
   void resize(size_t size);
 };
 ```
-Note that `DynamicDOFs` corresponds to `DOFs = 0`. We've included a range of examples for using Ruckig with [(10) Eigen](https://github.com/pantor/ruckig/blob/master/examples/10_eigen_vector_type.cpp), [(11) custom vector types](https://github.com/pantor/ruckig/blob/master/examples/11_custom_vector_type.cpp), and [(12) custom types with a dynamic number of DoFs](https://github.com/pantor/ruckig/blob/master/examples/12_custom_vector_type_dynamic_dofs.cpp).
+Note that `DynamicDOFs` corresponds to `DOFs = 0`. We've included a range of examples for using Ruckig with [(10) Eigen](https://github.com/pantor/ruckig/blob/main/examples/10_eigen_vector_type.cpp), [(11) custom vector types](https://github.com/pantor/ruckig/blob/main/examples/11_custom_vector_type.cpp), and [(12) custom types with a dynamic number of DoFs](https://github.com/pantor/ruckig/blob/main/examples/12_custom_vector_type_dynamic_dofs.cpp).
 
 
 ## Tests and Numerical Stability
 
-The current test suite validates over 5.000.000.000 random trajectories as well as many additional edge cases. The numerical exactness is tested for the final position and final velocity to be within `1e-8`, for the final acceleration to be within `1e-10`, and for the velocity, acceleration and jerk limit to be within of a numerical error of `1e-12`. These are absolute values - we suggest to scale your input so that these correspond to your required precision of the system. For example, for most real-world systems we suggest to use input values in `[m]` (instead of e.g. `[mm]`), as `1e-8m` is sufficient precise for practical trajectory generation. Furthermore, all kinematic limits should be below `1e12`. The maximal supported trajectory duration is `7e3`. Note that Ruckig will also output values outside of this range, there is however no guarantee for correctness. The Ruckig Pro version has additional tools to increase the numerical range and improve reliability.
+The current test suite validates over 5.000.000.000 random trajectories as well as many additional edge cases. The numerical exactness is tested for the final position and final velocity to be within `1e-8`, for the final acceleration to be within `1e-10`, and for the velocity, acceleration and jerk limit to be within of a numerical error of `1e-12`. These are absolute values - we suggest to scale your input so that these correspond to your required precision of the system. For example, for most real-world systems we suggest to use input values in `[m]` (instead of e.g. `[mm]`), as `1e-8m` is sufficient precise for practical trajectory generation. Furthermore, all kinematic limits should be below `1e9`. The maximal supported trajectory duration is `7e3`. Note that Ruckig will also output values outside of this range, there is however no guarantee for correctness.
+
+The Ruckig Pro version has additional tools to increase the numerical range and improve reliability. For example, the`position_scale` and `time_scale` parameter of the `Calculator` class change the internal representation of the input parameters.
+```.cpp
+Ruckig<1> otg;
+// Works also for Trackig<1> otg;
+
+otg.calculator.position_scale = 1e2;  // Scales all positions in the input parameters
+otg.calculator.time_scale = 1e3;  // Scale all times in the input parameters
+```
+This way, you can easily achieve the requirements above even for very high jerk limits or very long trajectories. Note that the scale parameters don't effect the resulting trajectory - they are for internal calculation only.
 
 
 ## Benchmark
 
 We find that Ruckig is more than twice as fast as Reflexxes Type IV for state-to-state motions and well-suited for control cycles as low as 250 microseconds. The Ruckig *Community Version* is in general a more powerful and open-source alternative to the [Reflexxes Type IV](http://reflexxes.ws/) library. In fact, Ruckig is the first Type V trajectory generator for arbitrary target states and even supports directional velocity and acceleration limits, while also being faster on top.
 
-![Benchmark](https://github.com/pantor/ruckig/raw/master/doc/benchmark.png?raw=true)
+![Benchmark](https://github.com/pantor/ruckig/raw/main/doc/benchmark.png?raw=true)
 
 For trajectories with intermediate waypoints, we compare Ruckig to [Toppra](https://github.com/hungpham2511/toppra), a state-of-the-art library for robotic motion planning. Ruckig is able to improve the trajectory duration on average by around 10%, as the path planning and time parametrization are calculated jointly. Moreover, Ruckig is real-time capable and supports jerk-constraints.
 
-![Benchmark](https://github.com/pantor/ruckig/raw/master/doc/ruckig_toppra_example.png?raw=true)
+![Benchmark](https://github.com/pantor/ruckig/raw/main/doc/ruckig_toppra_example.png?raw=true)
 
 
 
@@ -349,9 +359,9 @@ For trajectories with intermediate waypoints, we compare Ruckig to [Toppra](http
 Ruckig is written in C++17. It is continuously tested on `ubuntu-latest`, `macos-latest`, and `windows-latest` against following versions
 
 - Doctest v2.4 (only for testing)
-- Pybind11 v2.9 (only for python wrapper)
+- Pybind11 v2.11 (only for python wrapper)
 
-If you still need to use C++11, you can apply a small patch by executing `bash scripts/patch-c++11.sh`. This will result in a performance drop of a few percent. Moreover, the Python module is not supported.
+A C++11 and C++03 version of Ruckig is also available - please contact us if you're interested.
 
 
 ## Used By
