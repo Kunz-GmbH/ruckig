@@ -73,8 +73,8 @@ namespace ruckig {
 		public:
 			// CPS
 			RuckigWrapper(double td);
-			ResultValues GetPositions(double td, Parameter para, int stepLimit, bool useVelocityInterface, array<CurrentState>^ currentStates);
-			ResultValues GetPositionsIncludingBrakePosition(double td, Parameter para, int stepLimit, int brakeTrajectoriesLimit, bool useVelocityInterface, array<array<CurrentState>^>^ currentStates, array<int>^ lengths);
+			ResultValues GetPositions(Parameter para, int stepLimit, bool useVelocityInterface, array<CurrentState>^ currentStates);
+			ResultValues GetPositionsIncludingBrakePosition(Parameter para, int stepLimit, int brakeTrajectoriesLimit, bool useVelocityInterface, array<array<CurrentState>^>^ currentStates, array<int>^ lengths);
 
 			static ValueTuple< List<CurrentState>^, ResultValues> GetPositions(double td, Parameter para, int stepLimit, bool useVelocityInterface);
 			static ValueTuple< array<List<CurrentState>^>^, ResultValues> GetPositionsIncludingBrakePosition(double td, Parameter para, int stepLimit, int brakeTrajectoriesLimit, bool useVelocityInterface);

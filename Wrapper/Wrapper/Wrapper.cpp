@@ -12,7 +12,7 @@ namespace ruckig {
 		}
 
 		// 1 axis for cps
-		ResultValues RuckigWrapper::GetPositions(double td, Parameter para, int stepLimit, bool useVelocityInterface, array<CurrentState>^ currentStates) {
+		ResultValues RuckigWrapper::GetPositions(Parameter para, int stepLimit, bool useVelocityInterface, array<CurrentState>^ currentStates) {
 			ResultValues resultValues{ };
 			double brakeTime1;
 
@@ -136,11 +136,9 @@ namespace ruckig {
 		}
 
 
-		ResultValues RuckigWrapper::GetPositionsIncludingBrakePosition(double td, Parameter para, int stepLimit, int brakeTrajectoriesLimit, bool useVelocityInterface, array<array<CurrentState>^>^ currentStates, array<int>^ lengths) {
+		ResultValues RuckigWrapper::GetPositionsIncludingBrakePosition(Parameter para, int stepLimit, int brakeTrajectoriesLimit, bool useVelocityInterface, array<array<CurrentState>^>^ currentStates, array<int>^ lengths) {
 
 			ResultValues resultValues{ };
-
-			Ruckig<1> otg{ td };
 
 			InputParameter<1> input;
 			OutputParameter<1> output;
@@ -162,7 +160,7 @@ namespace ruckig {
 				(para.CurrentVelocity > 0 && para.TargetPosition > para.CurrentPosition && para.CurrentVelocity > para.MaxVelocity
 					|| para.CurrentVelocity < 0 && para.TargetPosition < para.CurrentPosition && para.CurrentVelocity < -para.MaxVelocity)) {
 
-				auto [use2PhaseChangeTmp, brakeTime1Tmp, res1, res2] = WorkaroundCurrentVelocityToHigh(input, para, signedMaxVelocity, otg);
+				auto [use2PhaseChangeTmp, brakeTime1Tmp, res1, res2] = WorkaroundCurrentVelocityToHigh(input, para, signedMaxVelocity, *_otg);
 				brakeTime1 = brakeTime1Tmp;
 				use2PhaseChange = use2PhaseChangeTmp;
 
@@ -175,7 +173,7 @@ namespace ruckig {
 
 			auto targetVelocityReachable = true;
 			if (!useVelocityInterface && para.TargetVelocity != 0) {
-				auto [resTargetVelocity, targetVelocityReachableTmp] = WorkaroundTargetVelocity(input, para, otg);
+				auto [resTargetVelocity, targetVelocityReachableTmp] = WorkaroundTargetVelocity(input, para, *_otg);
 				if (resTargetVelocity < 0) {
 					resultValues.CalculationResult = resTargetVelocity;
 					return resultValues;
@@ -185,7 +183,7 @@ namespace ruckig {
 
 			auto brakingIsPossible = true;
 			if (!useVelocityInterface) {
-				auto [resBrakeTrajectory, brakingIsPossibleTmp] = CheckBrakeTrajectory(input, para, otg);
+				auto [resBrakeTrajectory, brakingIsPossibleTmp] = CheckBrakeTrajectory(input, para, *_otg);
 				if (resBrakeTrajectory < 0) {
 					resultValues.CalculationResult = resBrakeTrajectory;
 					return resultValues;
@@ -223,7 +221,7 @@ namespace ruckig {
 				auto counter = 1;
 				auto braking = false;
 				auto needToSwitchBack = use2PhaseChange;
-				while ((otg.update(input, output) == Result::Working || needToSwitchBack || (i == 0 && para.TargetVelocity != 0) || (i == 0 && !targetVelocityReachable)) && (stepLimit < 0 || counter < stepLimit + i) && currentStates[i]->Length -1 < counter) {
+				while ((_otg->update(input, output) == Result::Working || needToSwitchBack || (i == 0 && para.TargetVelocity != 0) || (i == 0 && !targetVelocityReachable)) && (stepLimit < 0 || counter < stepLimit + i) && currentStates[i]->Length - 1 < counter) {
 
 					if (counter > i) {
 						currentStates[i][counter - 1].Pos = output.new_position[0];
@@ -258,11 +256,11 @@ namespace ruckig {
 					output.pass_to_input(input);
 				}
 
-				auto res = otg.update(input, output);
+				auto res = _otg->update(input, output);
 				if (res < 0 || i == 0)
 					resultValues.CalculationResult = res;
 				else
-					lengths[i] = counter;
+					lengths[i] = counter - 1; // TODO -1? maybe remove like 
 
 				currentStates[i][counter - 1].Pos = output.new_position[0];
 				currentStates[i][counter - 1].Vel = output.new_velocity[0];
