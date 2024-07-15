@@ -221,7 +221,7 @@ namespace ruckig {
 				auto counter = 1;
 				auto braking = false;
 				auto needToSwitchBack = use2PhaseChange;
-				while ((_otg->update(input, output) == Result::Working || needToSwitchBack || (i == 0 && para.TargetVelocity != 0) || (i == 0 && !targetVelocityReachable)) && (stepLimit < 0 || counter < stepLimit + i) && currentStates[i]->Length - 1 < counter) {
+				while ((_otg->update(input, output) == Result::Working || needToSwitchBack || (i == 0 && para.TargetVelocity != 0) || (i == 0 && !targetVelocityReachable)) && (stepLimit < 0 || counter < stepLimit + i) && currentStates[i]->Length - 1 > counter) {
 
 					if (counter > i) {
 						currentStates[i][counter - 1].Pos = output.new_position[0];
@@ -259,8 +259,8 @@ namespace ruckig {
 				auto res = _otg->update(input, output);
 				if (res < 0 || i == 0)
 					resultValues.CalculationResult = res;
-				else
-					lengths[i] = counter - 1; // TODO -1? maybe remove like 
+				if (res >= 0)
+					lengths[i] = counter-1;
 
 				currentStates[i][counter - 1].Pos = output.new_position[0];
 				currentStates[i][counter - 1].Vel = output.new_velocity[0];
