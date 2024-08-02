@@ -213,7 +213,7 @@ namespace ruckig {
 				if (!targetVelocityReachable)
 					input.control_interface = ControlInterface::Velocity;
 
-				if (useVelocityInterface || i != 0) {
+				if (useVelocityInterface) {
 					input.control_interface = ControlInterface::Velocity;
 					use2PhaseChange = false;
 				}
@@ -221,12 +221,18 @@ namespace ruckig {
 				auto counter = 1;
 				auto braking = false;
 				auto needToSwitchBack = use2PhaseChange;
-				while ((_otg->update(input, output) == Result::Working || needToSwitchBack || (i == 0 && para.TargetVelocity != 0) || (i == 0 && !targetVelocityReachable)) && (stepLimit < 0 || counter < stepLimit + i) && currentStates[i]->Length - 1 > counter) {
+				while ((_otg->update(input, output) == Result::Working || needToSwitchBack || (i == 0 && para.TargetVelocity != 0) || (i == 0 && !targetVelocityReachable)) && (stepLimit < 0 || counter - 1 <= stepLimit) && currentStates[i]->Length - 1 >= counter) { //  -1 from counter start with 1
 
 					if (counter > i) {
+						// ignore the values we already get from the main trajectory -> reduced collision check costs
 						currentStates[i][counter - 1].Pos = output.new_position[0];
 						currentStates[i][counter - 1].Vel = output.new_velocity[0];
 						currentStates[i][counter - 1].Acc = output.new_acceleration[0];
+					}
+					else {
+						currentStates[i][counter - 1].Pos = -42'000'000;
+						currentStates[i][counter - 1].Vel = -42'000'000;
+						currentStates[i][counter - 1].Acc = -42'000'000;
 					}
 
 					if (needToSwitchBack && brakeTime1 <= output.time) {
@@ -236,8 +242,9 @@ namespace ruckig {
 						needToSwitchBack = false;
 					}
 
-					if (counter == i && i != 0) {
+					if (IsItTimeToBrake(counter, i)) {
 						braking = true;
+						needToSwitchBack = false; // doesnt matter any more
 						input.control_interface = ControlInterface::Velocity;
 						input.target_velocity = { 0 };
 						input.target_acceleration = { 0 };
@@ -260,7 +267,7 @@ namespace ruckig {
 				if (res < 0 || i == 0)
 					resultValues.CalculationResult = res;
 				if (res >= 0)
-					lengths[i] = counter-1;
+					lengths[i] = counter;
 
 				currentStates[i][counter - 1].Pos = output.new_position[0];
 				currentStates[i][counter - 1].Vel = output.new_velocity[0];
@@ -268,6 +275,11 @@ namespace ruckig {
 			}
 
 			return  resultValues;
+		}
+
+		bool IsItTimeToBrake(int counter, int i)
+		{
+			return counter == i && i != 0;
 		}
 
 
