@@ -266,8 +266,13 @@ namespace ruckig {
 				auto res = _otg->update(input, output);
 				if (res < 0 || i == 0)
 					resultValues.CalculationResult = res;
-				if (res >= 0)
-					lengths[i] = counter;
+
+				if (res >= 0) {
+					if (counter == 1 && Math::Abs(output.new_position[0] - para.CurrentPosition) < 0.0001f) // no pos change so dont report back
+						lengths[i] = 0;
+					else
+						lengths[i] = counter;
+				}
 
 				currentStates[i][counter - 1].Pos = output.new_position[0];
 				currentStates[i][counter - 1].Vel = output.new_velocity[0];
@@ -391,6 +396,7 @@ namespace ruckig {
 					input.control_interface = ControlInterface::Velocity;
 					input.target_position = { para.TargetPosition + 1000 };
 				}
+
 				if (para.TargetVelocity < 0 && (output.new_position[0] <= para.TargetPosition || !targetVelocityReachable)) {
 					input.control_interface = ControlInterface::Velocity;
 					input.target_position = { para.TargetPosition - 1000 };
