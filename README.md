@@ -116,7 +116,7 @@ input.intermediate_positions = {
 ```
 As soon as at least one intermediate positions is given, the Ruckig Community Version switches to the mentioned (of course, non real-time capable) cloud API. If you require real-time calculation on your own hardware, please contact us for the *Ruckig Pro Version*.
 
-When using *intermediate positions*, both the underlying motion planning problem as well as its calculation changes significantly. In particular, there are some fundamental limitations for jerk-limited online trajectory generation regarding the usage of waypoints. Please find more information about these limitations [here](https://docs.ruckig.com/md_pages__intermediate_waypoints.html), and in general we recommend to use
+When using *intermediate positions*, both the underlying motion planning problem as well as its calculation changes significantly. In particular, there are some fundamental limitations for jerk-limited online trajectory generation regarding the usage of waypoints. Please find more information about these limitations [here](https://docs.ruckig.com/md_pages_2__intermediate__waypoints.html), and in general we recommend to use
 ```.cpp
 input.intermediate_positions = otg.filter_intermediate_positions(input.intermediate_positions, {0.1, ...});
 ```
@@ -359,7 +359,7 @@ For trajectories with intermediate waypoints, we compare Ruckig to [Toppra](http
 Ruckig is written in C++17. It is continuously tested on `ubuntu-latest`, `macos-latest`, and `windows-latest` against following versions
 
 - Doctest v2.4 (only for testing)
-- Pybind11 v2.11 (only for python wrapper)
+- Nanobind v2.4 (only for Python wrapper)
 
 A C++11 and C++03 version of Ruckig is also available - please contact us if you're interested.
 

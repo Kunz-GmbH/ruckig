@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 3.15)
 
-set(RUCKIG_VERSION 0.12.2)
-project(ruckig VERSION ${RUCKIG_VERSION} LANGUAGES CXX)
+
+project(ruckig VERSION 0.14.0 LANGUAGES CXX)
 
 
 include(GNUInstallDirs)
 
 
 option(BUILD_EXAMPLES "Build example programs" ON)
-option(BUILD_PYTHON_MODULE "Build python module with pybind11" OFF)
+option(BUILD_PYTHON_MODULE "Build Python wrapper with nanobind" OFF)
 option(BUILD_CLOUD_CLIENT "Build cloud client to calculate Ruckig Pro trajectories remotely" ON)
 option(BUILD_TESTS "Build tests" ON)
 option(BUILD_BENCHMARK "Build benchmark" OFF)
@@ -32,7 +32,6 @@ add_library(ruckig
   src/ruckig/velocity_third_step1.cpp
   src/ruckig/velocity_third_step2.cpp
 )
-add_library(ruckig::ruckig ALIAS ruckig)
 
 target_compile_features(ruckig PUBLIC cxx_std_17)
 target_include_directories(ruckig PUBLIC
@@ -45,14 +44,46 @@ if(MSVC)
   target_compile_definitions(ruckig PUBLIC _USE_MATH_DEFINES)
 endif()
 
-
 if(BUILD_CLOUD_CLIENT)
   target_sources(ruckig PRIVATE src/ruckig/cloud_client.cpp)
   target_include_directories(ruckig PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third_party>
-    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/ruckig/third_party>
   )
   target_compile_definitions(ruckig PUBLIC WITH_CLOUD_CLIENT)
+endif()
+
+add_library(ruckig::ruckig ALIAS ruckig)
+
+
+if(BUILD_TESTS)
+  enable_testing()
+
+  add_library(test-dependencies INTERFACE)
+  target_link_libraries(test-dependencies INTERFACE ruckig)
+  target_include_directories(test-dependencies INTERFACE third_party)
+  if(MSVC)
+    target_compile_options(test-dependencies INTERFACE /W4)
+  else()
+    target_compile_options(test-dependencies INTERFACE -Wall -Wextra)
+  endif()
+
+  add_executable(test-target test/test_target.cpp)
+  target_link_libraries(test-target PRIVATE test-dependencies)
+  add_test(NAME test-target COMMAND test-target)
+  if(NOT MSVC)
+    include(CTest)
+    find_program(MEMORYCHECK_COMMAND valgrind)
+    set(MEMORYCHECK_COMMAND_OPTIONS "--tool=memcheck --leak-check=full --trace-children=yes \
+      --track-origins=yes  --keep-debuginfo=yes --error-exitcode=100")
+  endif()
+endif()
+
+
+if(BUILD_BENCHMARK)
+  add_executable(benchmark-target test/benchmark_target.cpp)
+
+  target_link_libraries(benchmark-target PRIVATE ruckig)
 endif()
 
 
@@ -74,14 +105,13 @@ endif()
 
 
 if(BUILD_PYTHON_MODULE)
-  # Check if pybind11 exists as a subdirectory
-  if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/pybind11)
-    add_subdirectory(pybind11)
-  else()
-    find_package(pybind11 2.6 REQUIRED)
-  endif()
+  find_package(Python 3.8 REQUIRED COMPONENTS Interpreter Development.Module)
+  execute_process(
+    COMMAND "${Python_EXECUTABLE}" -m nanobind --cmake_dir
+    OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE nanobind_ROOT)
+  find_package(nanobind CONFIG REQUIRED)
 
-  pybind11_add_module(python_ruckig src/ruckig/python.cpp)
+  nanobind_add_module(python_ruckig NB_STATIC src/ruckig/python.cpp)
   target_compile_features(python_ruckig PUBLIC cxx_std_17)
   target_link_libraries(python_ruckig PUBLIC ruckig)
   if(BUILD_CLOUD_CLIENT)
@@ -98,13 +128,18 @@ endif()
 # Add support for installation
 include(CMakePackageConfigHelpers)
 
+# Install headers
+install(DIRECTORY include/ruckig DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+if(BUILD_CLOUD_CLIENT)
+  install(DIRECTORY third_party/httplib third_party/nlohmann DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/ruckig/third_party)
+endif()
+
 # Install library
 install(TARGETS ruckig
   EXPORT ${PROJECT_NAME}-targets
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-  INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 
 # Install CMake config files
@@ -136,48 +171,17 @@ install(FILES
 )
 
 
-if(BUILD_TESTS)
-  enable_testing()
-
-  add_library(test-dependencies INTERFACE)
-  target_link_libraries(test-dependencies INTERFACE ruckig)
-  target_include_directories(test-dependencies INTERFACE third_party)
-  if(MSVC)
-    target_compile_options(test-dependencies INTERFACE /W4)
-  else()
-    target_compile_options(test-dependencies INTERFACE -Wall -Wextra)
-  endif()
-
-  add_executable(test-target
-    test/test_target.cpp
-  )
-  target_link_libraries(test-target PRIVATE test-dependencies)
-  add_test(NAME test-target COMMAND test-target)
-  if(NOT MSVC)
-    include(CTest)
-    find_program(MEMORYCHECK_COMMAND valgrind)
-    set(MEMORYCHECK_COMMAND_OPTIONS "--tool=memcheck --leak-check=full --trace-children=yes \
-      --track-origins=yes  --keep-debuginfo=yes --error-exitcode=100")
-  endif()
-
-endif()
-
-
-if(BUILD_BENCHMARK)
-  add_executable(benchmark-target test/benchmark_target.cpp)
-
-  target_link_libraries(benchmark-target PRIVATE ruckig)
-endif()
-
-
 # Enable Packaging
-set(CPACK_PACKAGE_VENDOR "Lars Berscheid")
 set(CPACK_GENERATOR "DEB")
-set(CPACK_PACKAGE_VERSION ${RUCKIG_VERSION})
+set(CPACK_PACKAGE_CONTACT "Lars Berscheid (lars.berscheid@ruckig.com)")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Motion Generation for Robots and Machines.")
+set(CPACK_PACKAGE_VENDOR "Lars Berscheid")
+set(CPACK_PACKAGE_VERSION ${ruckig_VERSION})
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
+set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
 set(CPACK_SYSTEM_NAME ${CMAKE_HOST_SYSTEM_PROCESSOR})
-
-# Settings for Debian package
-set(CPACK_DEBIAN_PACKAGE_VERSION ${CPACK_PACKAGE_VERSION}-1)
+set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://ruckig.com")
 set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Lars Berscheid")
+set(CPACK_DEBIAN_PACKAGE_VERSION ${CPACK_PACKAGE_VERSION}-1)
 set(CPACK_DEBIAN_PACKAGE_CONFLICTS "ros-melodic-ruckig, ros-noetic-ruckig, ros-foxy-ruckig, ros-galactic-ruckig, ros-humble-ruckig, ros-rolling-ruckig")
 include(CPack)
