@@ -29,7 +29,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Wrapper.cpp">
+    <ClCompile Include="Wrapper_Pcp.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="AssemblyInfo.cpp">
@@ -69,6 +69,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\ruckig\velocity_third_step2.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Wrapper_Cps.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Wrapper_Dt.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

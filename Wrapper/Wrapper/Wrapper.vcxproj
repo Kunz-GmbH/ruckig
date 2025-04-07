@@ -24,7 +24,7 @@
     <Keyword>NetCoreCProj</Keyword>
     <RootNamespace>Wrapper</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <WindowsTargetPlatformMinVersion>10.0.18362.0</WindowsTargetPlatformMinVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -162,7 +162,9 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="Wrapper.cpp" />
+    <ClCompile Include="Wrapper_Pcp.cpp" />
+    <ClCompile Include="Wrapper_Cps.cpp" />
+    <ClCompile Include="Wrapper_Dt.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="app.rc" />
