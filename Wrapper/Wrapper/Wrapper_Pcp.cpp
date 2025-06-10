@@ -6,6 +6,7 @@ namespace ruckig {
 	namespace Wrapper {
 
 
+
 		// PCP Trajectory generator
 		ValueTuple< List<JerkStates>^, ResultValues> RuckigWrapper::GetValues(double td, Parameter parameter)
 		{

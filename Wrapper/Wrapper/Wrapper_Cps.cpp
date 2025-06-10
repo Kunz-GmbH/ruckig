@@ -72,7 +72,7 @@ namespace ruckig {
 
 			input.current_position = { para.CurrentPosition };
 			input.current_velocity = { para.CurrentVelocity };
-			input.current_acceleration = { para.CurrentAcceleration };
+			input.current_acceleration = { ImproveNumericStability(para.CurrentAcceleration) };
 
 			input.target_position = { para.TargetPosition };
 			input.target_velocity = { para.TargetVelocity };
@@ -151,7 +151,7 @@ namespace ruckig {
 
 			input.current_position = { para1.CurrentPosition, para2.CurrentPosition };
 			input.current_velocity = { para1.CurrentVelocity, para2.CurrentVelocity };
-			input.current_acceleration = { para1.CurrentAcceleration, para2.CurrentAcceleration };
+			input.current_acceleration = { ImproveNumericStability(para1.CurrentAcceleration), ImproveNumericStability(para2.CurrentAcceleration) }; 
 
 			input.target_position = { para1.TargetPosition, para2.TargetPosition };
 			input.target_velocity = { para1.TargetVelocity, para2.TargetVelocity };
@@ -249,7 +249,7 @@ namespace ruckig {
 
 				input.current_position = { para.CurrentPosition };
 				input.current_velocity = { para.CurrentVelocity };
-				input.current_acceleration = { para.CurrentAcceleration };
+				input.current_acceleration = { ImproveNumericStability(para.CurrentAcceleration) };
 
 				input.target_position = { para.TargetPosition };
 				input.target_velocity = { para.TargetVelocity };
@@ -351,7 +351,7 @@ namespace ruckig {
 
 			input.current_position = { para.CurrentPosition };
 			input.current_velocity = { para.CurrentVelocity };
-			input.current_acceleration = { para.CurrentAcceleration };
+			input.current_acceleration = { ImproveNumericStability(para.CurrentAcceleration) };
 
 			input.target_position = { para.TargetPosition };
 			input.target_velocity = { para.TargetVelocity };
@@ -456,7 +456,7 @@ namespace ruckig {
 
 			input.current_position = { para.CurrentPosition };
 			input.current_velocity = { para.CurrentVelocity };
-			input.current_acceleration = { para.CurrentAcceleration };
+			input.current_acceleration = { ImproveNumericStability(para.CurrentAcceleration) };
 
 			input.target_position = { para.TargetPosition };
 			input.target_velocity = { para.TargetVelocity };
@@ -536,7 +536,7 @@ namespace ruckig {
 
 			input.current_position = { para.CurrentPosition };
 			input.current_velocity = { para.CurrentVelocity };
-			input.current_acceleration = { para.CurrentAcceleration };
+			input.current_acceleration = { ImproveNumericStability(para.CurrentAcceleration) };
 
 			input.target_position = { para.TargetPosition };
 			input.target_velocity = { para.TargetVelocity };
@@ -635,7 +635,7 @@ namespace ruckig {
 
 				input.current_position = { para.CurrentPosition };
 				input.current_velocity = { para.CurrentVelocity };
-				input.current_acceleration = { para.CurrentAcceleration };
+				input.current_acceleration = { ImproveNumericStability(para.CurrentAcceleration) };
 
 				input.target_position = { para.TargetPosition };
 				input.target_velocity = { para.TargetVelocity };
@@ -713,7 +713,7 @@ namespace ruckig {
 			auto brakingIsPossible = true;
 			input.current_position = { para.CurrentPosition };
 			input.current_velocity = { para.CurrentVelocity };
-			input.current_acceleration = { para.CurrentAcceleration };
+			input.current_acceleration = { ImproveNumericStability(para.CurrentAcceleration) };
 
 			input.target_velocity = { 0 };
 			input.target_acceleration = { 0 };

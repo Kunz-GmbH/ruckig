@@ -118,11 +118,21 @@ namespace ruckig {
 			Trajectory<1>* _trajectory;
 			Ruckig<1>* _otg;
 			Ruckig<2>* _otg2;
-			
+
 			static ValueTuple<bool, double, int, int> WorkaroundCurrentVelocityToHigh(ruckig::InputParameter<1Ui64>& input, ruckig::Wrapper::Parameter& para, double signedMaxVelocity, ruckig::Ruckig<1Ui64>& otg);
 			static ValueTuple<int, bool> WorkaroundTargetVelocity(ruckig::InputParameter<1Ui64>& input, ruckig::Wrapper::Parameter& para, ruckig::Ruckig<1Ui64>& otg);
 			static ValueTuple<int, bool> CheckBrakeTrajectory(ruckig::InputParameter<1Ui64>& input, ruckig::Wrapper::Parameter& para, ruckig::Ruckig<1Ui64>& otg);
 			static float SfbRampEndPos(float actSpeed, int actPosition, SfbRampEndPosConfig config);
+			static double ImproveNumericStability(double value) {
+				// sometimes ruckig creates a incorrect trajectory if the values are just wrong -> move acceleration slightly to the safe side
+				if (value > 0)
+					return value - 0.0000001;
+
+				if (value < 0)
+					return value + 0.0000001;
+
+				return value;
+			}
 		};
 		bool IsItTimeToBrake(int counter, int i);
 	}

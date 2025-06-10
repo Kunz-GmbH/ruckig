@@ -15,7 +15,7 @@ namespace ruckig {
 			// Set input parameters
 			input.current_position = { parameter.CurrentPosition };
 			input.current_velocity = { parameter.CurrentVelocity };
-			input.current_acceleration = { parameter.CurrentAcceleration };
+			input.current_acceleration = { ImproveNumericStability(parameter.CurrentAcceleration) };
 
 			input.target_position = { parameter.TargetPosition };
 			input.target_velocity = { parameter.TargetVelocity };
